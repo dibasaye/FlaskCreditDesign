@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Connexion - Gestion Crédit & Épargne{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <div class="login-icon">
+                <i class="fas fa-university"></i>
+            </div>
+            <h2 class="login-title">FinanceManager</h2>
+            <p class="text-muted">Système de Gestion de Crédit & Épargne</p>
+        </div>
+        
+        <form method="POST" action="{{ url_for('login') }}">
+            {{ form.hidden_tag() }}
+            
+            <div class="mb-3">
+                <label for="{{ form.username.id }}" class="form-label">
+                    <i class="fas fa-user me-2"></i>{{ form.username.label.text }}
+                </label>
+                {{ form.username(class="form-control form-control-lg", placeholder="Entrez votre nom d'utilisateur") }}
+                {% if form.username.errors %}
+                    <div class="text-danger mt-1">
+                        {% for error in form.username.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="mb-4">
+                <label for="{{ form.password.id }}" class="form-label">
+                    <i class="fas fa-lock me-2"></i>{{ form.password.label.text }}
+                </label>
+                {{ form.password(class="form-control form-control-lg", placeholder="Entrez votre mot de passe") }}
+                {% if form.password.errors %}
+                    <div class="text-danger mt-1">
+                        {% for error in form.password.errors %}
+                            <small>{{ error }}</small>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="fas fa-sign-in-alt me-2"></i>Se connecter
+                </button>
+            </div>
+        </form>
+        
+        <div class="mt-4 text-center">
+            <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                Utilisateur par défaut: admin / admin123
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}

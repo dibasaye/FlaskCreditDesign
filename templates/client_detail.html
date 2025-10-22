@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}{{ client.full_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h1 class="page-title">
+                <i class="fas fa-user me-2"></i>{{ client.full_name }}
+            </h1>
+            <p class="text-muted">ID: {{ client.client_id }}</p>
+        </div>
+        <div class="col-md-6 text-end">
+            <a href="{{ url_for('edit_client', id=client.id) }}" class="btn btn-warning">
+                <i class="fas fa-edit me-2"></i>Modifier
+            </a>
+            <a href="{{ url_for('clients') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Retour
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informations</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Email:</strong> {{ client.email or '-' }}</p>
+                    <p><strong>Téléphone:</strong> {{ client.phone or '-' }}</p>
+                    <p><strong>Date de naissance:</strong> {{ client.date_of_birth.strftime('%d/%m/%Y') if client.date_of_birth else '-' }}</p>
+                    <p><strong>Numéro d'identité:</strong> {{ client.id_number or '-' }}</p>
+                    <p><strong>Adresse:</strong> {{ client.address or '-' }}</p>
+                    <p><strong>Inscrit le:</strong> {{ client.created_at.strftime('%d/%m/%Y') }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-hand-holding-usd me-2"></i>Crédits</h5>
+                </div>
+                <div class="card-body">
+                    {% if client.credits %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Numéro</th>
+                                    <th>Montant</th>
+                                    <th>Payé</th>
+                                    <th>Reste</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for credit in client.credits %}
+                                <tr>
+                                    <td>{{ credit.credit_number }}</td>
+                                    <td>{{ credit.amount|currency }}</td>
+                                    <td>{{ credit.amount_paid|currency }}</td>
+                                    <td>{{ credit.balance|currency }}</td>
+                                    <td>
+                                        {% if credit.status == 'active' %}
+                                            <span class="badge bg-success">Actif</span>
+                                        {% elif credit.status == 'pending' %}
+                                            <span class="badge bg-warning">En attente</span>
+                                        {% elif credit.status == 'completed' %}
+                                            <span class="badge bg-secondary">Complété</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('credit_detail', id=credit.id) }}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Aucun crédit</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-piggy-bank me-2"></i>Comptes d'Épargne</h5>
+                </div>
+                <div class="card-body">
+                    {% if client.savings_accounts %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Numéro de compte</th>
+                                    <th>Solde</th>
+                                    <th>Statut</th>
+                                    <th>Date d'ouverture</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for account in client.savings_accounts %}
+                                <tr>
+                                    <td>{{ account.account_number }}</td>
+                                    <td>{{ account.balance|currency }}</td>
+                                    <td>
+                                        {% if account.status == 'active' %}
+                                            <span class="badge bg-success">Actif</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Fermé</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ account.opening_date.strftime('%d/%m/%Y') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('savings_detail', id=account.id) }}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Aucun compte d'épargne</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

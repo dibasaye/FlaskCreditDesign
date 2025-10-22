@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Crédit {{ credit.credit_number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h1 class="page-title">
+                <i class="fas fa-hand-holding-usd me-2"></i>Crédit {{ credit.credit_number }}
+            </h1>
+            <p class="text-muted">Client: {{ credit.client.full_name }}</p>
+        </div>
+        <div class="col-md-6 text-end">
+            {% if credit.status == 'pending' and current_user.role in ['administrateur', 'gestionnaire'] %}
+                <form method="POST" action="{{ url_for('approve_credit', id=credit.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-2"></i>Approuver
+                    </button>
+                </form>
+            {% endif %}
+            {% if credit.status == 'approved' and current_user.role in ['administrateur', 'gestionnaire'] %}
+                <form method="POST" action="{{ url_for('disburse_credit', id=credit.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-info">
+                        <i class="fas fa-money-bill-wave me-2"></i>Décaisser
+                    </button>
+                </form>
+            {% endif %}
+            <a href="{{ url_for('credits') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Retour
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informations</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Produit:</strong> {{ credit.product.name }}</p>
+                    <p><strong>Montant:</strong> {{ credit.amount|currency }}</p>
+                    <p><strong>Taux d'intérêt:</strong> {{ credit.interest_rate }}%</p>
+                    <p><strong>Durée:</strong> {{ credit.duration_months }} mois</p>
+                    <p><strong>Paiement mensuel:</strong> {{ credit.monthly_payment|currency }}</p>
+                    <p><strong>Total à payer:</strong> {{ credit.total_amount|currency }}</p>
+                    <p><strong>Statut:</strong>
+                        {% if credit.status == 'pending' %}
+                            <span class="badge bg-warning">En attente</span>
+                        {% elif credit.status == 'approved' %}
+                            <span class="badge bg-info">Approuvé</span>
+                        {% elif credit.status == 'active' %}
+                            <span class="badge bg-success">Actif</span>
+                        {% elif credit.status == 'completed' %}
+                            <span class="badge bg-secondary">Complété</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Progrès du remboursement</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center mb-3">
+                        <div class="col-md-4">
+                            <h4 class="text-success">{{ credit.amount_paid|currency }}</h4>
+                            <p class="text-muted">Payé</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 class="text-danger">{{ credit.balance|currency }}</h4>
+                            <p class="text-muted">Reste</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 class="text-primary">{{ credit.progress_percentage|round(1) }}%</h4>
+                            <p class="text-muted">Complété</p>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 30px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: {{ credit.progress_percentage }}%">
+                            {{ credit.progress_percentage|round(1) }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {% if credit.status in ['active', 'approved'] %}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-money-bill-wave me-2"></i>Ajouter un paiement</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('add_credit_payment', id=credit.id) }}">
+                        {{ payment_form.hidden_tag() }}
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                {{ payment_form.amount.label(class="form-label") }}
+                                {{ payment_form.amount(class="form-control") }}
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                {{ payment_form.payment_method.label(class="form-label") }}
+                                {{ payment_form.payment_method(class="form-control") }}
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                {{ payment_form.reference.label(class="form-label") }}
+                                {{ payment_form.reference(class="form-control") }}
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-plus me-2"></i>Ajouter
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Historique des paiements</h5>
+                </div>
+                <div class="card-body">
+                    {% if credit.payments %}
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Montant</th>
+                                    <th>Méthode</th>
+                                    <th>Référence</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in credit.payments %}
+                                <tr>
+                                    <td>{{ payment.payment_date.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td><strong>{{ payment.amount|currency }}</strong></td>
+                                    <td>{{ payment.payment_method or '-' }}</td>
+                                    <td>{{ payment.reference or '-' }}</td>
+                                    <td>{{ payment.notes or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Aucun paiement enregistré</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
