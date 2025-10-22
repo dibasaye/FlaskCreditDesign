@@ -37,12 +37,16 @@ def generate_unique_id(prefix, model, field):
 with app.app_context():
     db.create_all()
     
-    if not User.query.first():
-        admin = User(username='admin', email='admin@example.com', role='administrateur')
-        admin.set_password('admin123')
+    admin_username = os.environ.get("ADMIN_USERNAME")
+    admin_password = os.environ.get("ADMIN_PASSWORD")
+    admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com")
+    
+    if admin_username and admin_password and not User.query.filter_by(username=admin_username).first():
+        admin = User(username=admin_username, email=admin_email, role='administrateur')
+        admin.set_password(admin_password)
         db.session.add(admin)
         db.session.commit()
-        print("Utilisateur admin créé - username: admin, password: admin123")
+        print(f"Utilisateur administrateur '{admin_username}' créé avec succès")
 
 @app.route('/')
 def index():
