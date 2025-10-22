@@ -49,3 +49,12 @@ class SavingsTransactionForm(FlaskForm):
     amount = FloatField('Montant', validators=[DataRequired(), NumberRange(min=0.01)])
     reference = StringField('Référence', validators=[Optional(), Length(max=100)])
     notes = TextAreaField('Notes', validators=[Optional()])
+
+class ProfileForm(FlaskForm):
+    username = StringField('Nom d\'utilisateur', validators=[DataRequired(), Length(min=3, max=80)])
+    email = EmailField('Email', validators=[DataRequired(), Email()])
+
+class ChangePasswordForm(FlaskForm):
+    current_password = PasswordField('Mot de passe actuel', validators=[DataRequired()])
+    new_password = PasswordField('Nouveau mot de passe', validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirmer le mot de passe', validators=[DataRequired()])

@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Client, Product, Credit, CreditPayment, SavingsAccount, SavingsTransaction
-from forms import LoginForm, ClientForm, ProductForm, CreditForm, CreditPaymentForm, SavingsAccountForm, SavingsTransactionForm
+from forms import LoginForm, ClientForm, ProductForm, CreditForm, CreditPaymentForm, SavingsAccountForm, SavingsTransactionForm, ProfileForm, ChangePasswordForm
 from sqlalchemy import func
 import random
 import string
@@ -396,6 +396,36 @@ def add_savings_transaction(id):
         flash(f'Transaction de {amount} enregistrée avec succès!', 'success')
     
     return redirect(url_for('savings_detail', id=id))
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    profile_form = ProfileForm(obj=current_user)
+    password_form = ChangePasswordForm()
+    
+    if profile_form.validate_on_submit() and 'profile_submit' in request.form:
+        existing_user = User.query.filter(User.username == profile_form.username.data, User.id != current_user.id).first()
+        if existing_user:
+            flash('Ce nom d\'utilisateur est déjà utilisé', 'danger')
+        else:
+            current_user.username = profile_form.username.data
+            current_user.email = profile_form.email.data
+            db.session.commit()
+            flash('Profil mis à jour avec succès!', 'success')
+            return redirect(url_for('settings'))
+    
+    if password_form.validate_on_submit() and 'password_submit' in request.form:
+        if not current_user.check_password(password_form.current_password.data):
+            flash('Mot de passe actuel incorrect', 'danger')
+        elif password_form.new_password.data != password_form.confirm_password.data:
+            flash('Les nouveaux mots de passe ne correspondent pas', 'danger')
+        else:
+            current_user.set_password(password_form.new_password.data)
+            db.session.commit()
+            flash('Mot de passe changé avec succès!', 'success')
+            return redirect(url_for('settings'))
+    
+    return render_template('settings.html', profile_form=profile_form, password_form=password_form)
 
 @app.template_filter('currency')
 def currency_filter(value):
