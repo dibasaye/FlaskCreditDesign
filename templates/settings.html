@@ -1,126 +1,373 @@
 {% extends "base.html" %}
 
-{% block title %}Paramètres{% endblock %}
+{% block title %}Param\u00e8tres{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container-fluid">
     <div class="row mb-4">
         <div class="col-12">
             <h1 class="page-title">
-                <i class="fas fa-cog me-2"></i>Paramètres
+                <i class="fas fa-cog me-2"></i>Param\u00e8tres & Configuration
             </h1>
-            <p class="text-muted">Gérez votre profil et vos préférences</p>
+            <p class="text-muted">G\u00e9rez vos pr\u00e9f\u00e9rences, utilisateurs et param\u00e8tres syst\u00e8me</p>
         </div>
     </div>
 
-    <div class="row g-4">
-        <div class="col-lg-6">
+    <div class="row">
+        <div class="col-12">
             <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-user me-2"></i>Informations du profil</h5>
-                </div>
                 <div class="card-body">
-                    <form method="POST">
-                        {{ profile_form.hidden_tag() }}
-                        
-                        <div class="mb-3">
-                            {{ profile_form.username.label(class="form-label") }}
-                            {{ profile_form.username(class="form-control") }}
-                            {% if profile_form.username.errors %}
-                                <div class="text-danger mt-1">
-                                    {% for error in profile_form.username.errors %}
-                                        <small>{{ error }}</small>
-                                    {% endfor %}
+                    <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab">
+                                <i class="fas fa-user me-2"></i>Mon Profil
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="password-tab" data-bs-toggle="tab" data-bs-target="#password" type="button" role="tab">
+                                <i class="fas fa-key me-2"></i>Mot de passe
+                            </button>
+                        </li>
+                        {% if current_user.role == 'administrateur' %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="system-tab" data-bs-toggle="tab" data-bs-target="#system" type="button" role="tab">
+                                <i class="fas fa-cogs me-2"></i>Syst\u00e8me
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">
+                                <i class="fas fa-users-cog me-2"></i>Utilisateurs
+                            </button>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="export-tab" data-bs-toggle="tab" data-bs-target="#export" type="button" role="tab">
+                                <i class="fas fa-file-export me-2"></i>Export de donn\u00e9es
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content pt-4" id="settingsTabContent">
+                        <div class="tab-pane fade show active" id="profile" role="tabpanel">
+                            <h4 class="mb-3"><i class="fas fa-user-circle me-2 text-primary"></i>Informations du profil</h4>
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <form method="POST">
+                                        {{ profile_form.hidden_tag() }}
+                                        
+                                        <div class="mb-3">
+                                            {{ profile_form.username.label(class="form-label") }}
+                                            {{ profile_form.username(class="form-control form-control-lg") }}
+                                            {% if profile_form.username.errors %}
+                                                <div class="text-danger mt-1">
+                                                    {% for error in profile_form.username.errors %}
+                                                        <small>{{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            {{ profile_form.email.label(class="form-label") }}
+                                            {{ profile_form.email(class="form-control form-control-lg") }}
+                                            {% if profile_form.email.errors %}
+                                                <div class="text-danger mt-1">
+                                                    {% for error in profile_form.email.errors %}
+                                                        <small>{{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label class="form-label">R\u00f4le</label>
+                                            <input type="text" class="form-control form-control-lg" value="{{ current_user.role|title }}" readonly>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label class="form-label">Date de cr\u00e9ation</label>
+                                            <input type="text" class="form-control" value="{{ current_user.created_at.strftime('%d/%m/%Y \u00e0 %H:%M') }}" readonly>
+                                        </div>
+                                        
+                                        <button type="submit" name="profile_submit" class="btn btn-primary btn-lg">
+                                            <i class="fas fa-save me-2"></i>Enregistrer les modifications
+                                        </button>
+                                    </form>
                                 </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            {{ profile_form.email.label(class="form-label") }}
-                            {{ profile_form.email(class="form-control") }}
-                            {% if profile_form.email.errors %}
-                                <div class="text-danger mt-1">
-                                    {% for error in profile_form.email.errors %}
-                                        <small>{{ error }}</small>
-                                    {% endfor %}
+                                <div class="col-lg-6">
+                                    <div class="alert alert-info">
+                                        <h5 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Informations</h5>
+                                        <p>Votre nom d'utilisateur et votre email sont utilis\u00e9s pour vous identifier dans le syst\u00e8me.</p>
+                                        <hr>
+                                        <p class="mb-0"><strong>Statut du compte :</strong> <span class="badge bg-success">Actif</span></p>
+                                    </div>
                                 </div>
-                            {% endif %}
+                            </div>
                         </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label">Rôle</label>
-                            <input type="text" class="form-control" value="{{ current_user.role }}" readonly disabled>
-                        </div>
-                        
-                        <button type="submit" name="profile_submit" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i>Enregistrer les modifications
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-lg-6">
-            <div class="card shadow-sm">
-                <div class="card-header bg-warning text-dark">
-                    <h5 class="mb-0"><i class="fas fa-lock me-2"></i>Changer le mot de passe</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST">
-                        {{ password_form.hidden_tag() }}
-                        
-                        <div class="mb-3">
-                            {{ password_form.current_password.label(class="form-label") }}
-                            {{ password_form.current_password(class="form-control") }}
-                            {% if password_form.current_password.errors %}
-                                <div class="text-danger mt-1">
-                                    {% for error in password_form.current_password.errors %}
-                                        <small>{{ error }}</small>
-                                    {% endfor %}
+
+                        <div class="tab-pane fade" id="password" role="tabpanel">
+                            <h4 class="mb-3"><i class="fas fa-lock me-2 text-warning"></i>Changer le mot de passe</h4>
+                            <div class="row">
+                                <div class="col-lg-6">
+                                    <form method="POST">
+                                        {{ password_form.hidden_tag() }}
+                                        
+                                        <div class="mb-3">
+                                            {{ password_form.current_password.label(class="form-label") }}
+                                            {{ password_form.current_password(class="form-control form-control-lg") }}
+                                            {% if password_form.current_password.errors %}
+                                                <div class="text-danger mt-1">
+                                                    {% for error in password_form.current_password.errors %}
+                                                        <small>{{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            {{ password_form.new_password.label(class="form-label") }}
+                                            {{ password_form.new_password(class="form-control form-control-lg") }}
+                                            <small class="text-muted">Minimum 6 caract\u00e8res</small>
+                                            {% if password_form.new_password.errors %}
+                                                <div class="text-danger mt-1">
+                                                    {% for error in password_form.new_password.errors %}
+                                                        <small>{{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            {{ password_form.confirm_password.label(class="form-label") }}
+                                            {{ password_form.confirm_password(class="form-control form-control-lg") }}
+                                            {% if password_form.confirm_password.errors %}
+                                                <div class="text-danger mt-1">
+                                                    {% for error in password_form.confirm_password.errors %}
+                                                        <small>{{ error }}</small>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <button type="submit" name="password_submit" class="btn btn-warning btn-lg">
+                                            <i class="fas fa-key me-2"></i>Changer le mot de passe
+                                        </button>
+                                    </form>
                                 </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            {{ password_form.new_password.label(class="form-label") }}
-                            {{ password_form.new_password(class="form-control") }}
-                            <small class="text-muted">Minimum 6 caractères</small>
-                            {% if password_form.new_password.errors %}
-                                <div class="text-danger mt-1">
-                                    {% for error in password_form.new_password.errors %}
-                                        <small>{{ error }}</small>
-                                    {% endfor %}
+                                <div class="col-lg-6">
+                                    <div class="alert alert-warning">
+                                        <h5 class="alert-heading"><i class="fas fa-shield-alt me-2"></i>S\u00e9curit\u00e9</h5>
+                                        <p>Choisissez un mot de passe fort pour prot\u00e9ger votre compte :</p>
+                                        <ul class="mb-0">
+                                            <li>Au moins 6 caract\u00e8res</li>
+                                            <li>M\u00e9lange de lettres et chiffres</li>
+                                            <li>Caract\u00e8res sp\u00e9ciaux recommand\u00e9s</li>
+                                        </ul>
+                                    </div>
                                 </div>
-                            {% endif %}
+                            </div>
                         </div>
-                        
-                        <div class="mb-3">
-                            {{ password_form.confirm_password.label(class="form-label") }}
-                            {{ password_form.confirm_password(class="form-control") }}
-                            {% if password_form.confirm_password.errors %}
-                                <div class="text-danger mt-1">
-                                    {% for error in password_form.confirm_password.errors %}
-                                        <small>{{ error }}</small>
-                                    {% endfor %}
+
+                        {% if current_user.role == 'administrateur' %}
+                        <div class="tab-pane fade" id="system" role="tabpanel">
+                            <h4 class="mb-3"><i class="fas fa-cogs me-2 text-success"></i>Param\u00e8tres Syst\u00e8me</h4>
+                            <form method="POST">
+                                {{ settings_form.hidden_tag() }}
+                                
+                                <div class="row">
+                                    <div class="col-lg-6">
+                                        <h5 class="border-bottom pb-2 mb-3">G\u00e9n\u00e9ral</h5>
+                                        
+                                        <div class="mb-3">
+                                            {{ settings_form.organization_name.label(class="form-label") }}
+                                            {{ settings_form.organization_name(class="form-control") }}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            {{ settings_form.currency.label(class="form-label") }}
+                                            {{ settings_form.currency(class="form-control") }}
+                                            <small class="text-muted">Exemple : FCFA, EUR, USD</small>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            {{ settings_form.language.label(class="form-label") }}
+                                            {{ settings_form.language(class="form-control") }}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            {{ settings_form.date_format.label(class="form-label") }}
+                                            {{ settings_form.date_format(class="form-control") }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-lg-6">
+                                        <h5 class="border-bottom pb-2 mb-3">Cr\u00e9dits & P\u00e9nalit\u00e9s</h5>
+                                        
+                                        <div class="mb-3">
+                                            {{ settings_form.penalty_rate.label(class="form-label") }}
+                                            {{ settings_form.penalty_rate(class="form-control") }}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            {{ settings_form.late_payment_grace_period.label(class="form-label") }}
+                                            {{ settings_form.late_payment_grace_period(class="form-control") }}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            {{ settings_form.interest_calculation_method.label(class="form-label") }}
+                                            {{ settings_form.interest_calculation_method(class="form-control") }}
+                                        </div>
+                                    </div>
                                 </div>
-                            {% endif %}
+                                
+                                <div class="row mt-4">
+                                    <div class="col-lg-6">
+                                        <h5 class="border-bottom pb-2 mb-3">Notifications</h5>
+                                        
+                                        <div class="form-check form-switch mb-3">
+                                            {{ settings_form.enable_email_notifications(class="form-check-input") }}
+                                            {{ settings_form.enable_email_notifications.label(class="form-check-label") }}
+                                        </div>
+                                        
+                                        <div class="form-check form-switch mb-3">
+                                            {{ settings_form.enable_sms_notifications(class="form-check-input") }}
+                                            {{ settings_form.enable_sms_notifications.label(class="form-check-label") }}
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-lg-6">
+                                        <h5 class="border-bottom pb-2 mb-3">Sauvegardes</h5>
+                                        
+                                        <div class="form-check form-switch mb-3">
+                                            {{ settings_form.auto_backup_enabled(class="form-check-input") }}
+                                            {{ settings_form.auto_backup_enabled.label(class="form-check-label") }}
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            {{ settings_form.backup_frequency_days.label(class="form-label") }}
+                                            {{ settings_form.backup_frequency_days(class="form-control") }}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-4">
+                                    <button type="submit" name="system_submit" class="btn btn-success btn-lg">
+                                        <i class="fas fa-save me-2"></i>Enregistrer les param\u00e8tres syst\u00e8me
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        
-                        <button type="submit" name="password_submit" class="btn btn-warning">
-                            <i class="fas fa-key me-2"></i>Changer le mot de passe
-                        </button>
-                    </form>
-                </div>
-            </div>
-            
-            <div class="card shadow-sm mt-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informations du compte</h5>
-                </div>
-                <div class="card-body">
-                    <p><strong>Date de création :</strong> {{ current_user.created_at.strftime('%d/%m/%Y à %H:%M') }}</p>
-                    <p><strong>Dernière connexion :</strong> Aujourd'hui</p>
-                    <p class="mb-0"><strong>Statut :</strong> <span class="badge bg-success">Actif</span></p>
+
+                        <div class="tab-pane fade" id="users" role="tabpanel">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="mb-0"><i class="fas fa-users-cog me-2 text-info"></i>Gestion des Utilisateurs</h4>
+                                <a href="{{ url_for('new_user') }}" class="btn btn-primary">
+                                    <i class="fas fa-user-plus me-2"></i>Nouvel utilisateur
+                                </a>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nom d'utilisateur</th>
+                                            <th>Email</th>
+                                            <th>R\u00f4le</th>
+                                            <th>Date de cr\u00e9ation</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in users %}
+                                        <tr>
+                                            <td>
+                                                <i class="fas fa-user me-2"></i>{{ user.username }}
+                                                {% if user.id == current_user.id %}
+                                                <span class="badge bg-primary ms-2">Vous</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ user.email }}</td>
+                                            <td>
+                                                {% if user.role == 'administrateur' %}
+                                                <span class="badge bg-danger">{{ user.role|title }}</span>
+                                                {% elif user.role == 'gestionnaire' %}
+                                                <span class="badge bg-warning">{{ user.role|title }}</span>
+                                                {% else %}
+                                                <span class="badge bg-info">{{ user.role|title }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+                                            <td>
+                                                <a href="{{ url_for('edit_user', id=user.id) }}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% if user.id != current_user.id %}
+                                                <form method="POST" action="{{ url_for('delete_user', id=user.id) }}" class="d-inline" onsubmit="return confirm('Confirmer la suppression de cet utilisateur ?');">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="tab-pane fade" id="export" role="tabpanel">
+                            <h4 class="mb-3"><i class="fas fa-file-export me-2 text-success"></i>Export de Donn\u00e9es</h4>
+                            <p class="text-muted">T\u00e9l\u00e9chargez vos donn\u00e9es au format CSV pour analyse externe ou sauvegarde</p>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="card h-100 shadow-sm">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-users fa-3x text-primary mb-3"></i>
+                                            <h5 class="card-title">Clients</h5>
+                                            <p class="card-text text-muted">Exporter tous les clients avec leurs informations compl\u00e8tes</p>
+                                            <a href="{{ url_for('export_clients') }}" class="btn btn-primary">
+                                                <i class="fas fa-download me-2"></i>T\u00e9l\u00e9charger CSV
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="card h-100 shadow-sm">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-hand-holding-usd fa-3x text-success mb-3"></i>
+                                            <h5 class="card-title">Cr\u00e9dits</h5>
+                                            <p class="card-text text-muted">Exporter tous les cr\u00e9dits avec d\u00e9tails et paiements</p>
+                                            <a href="{{ url_for('export_credits') }}" class="btn btn-success">
+                                                <i class="fas fa-download me-2"></i>T\u00e9l\u00e9charger CSV
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="card h-100 shadow-sm">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-piggy-bank fa-3x text-info mb-3"></i>
+                                            <h5 class="card-title">\u00c9pargne</h5>
+                                            <p class="card-text text-muted">Exporter tous les comptes d'\u00e9pargne et leurs soldes</p>
+                                            <a href="{{ url_for('export_savings') }}" class="btn btn-info">
+                                                <i class="fas fa-download me-2"></i>T\u00e9l\u00e9charger CSV
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-info mt-4">
+                                <h5 class="alert-heading"><i class="fas fa-info-circle me-2"></i>Format des exports</h5>
+                                <p class="mb-0">Les fichiers CSV peuvent \u00eatre ouverts avec Excel, Google Sheets ou tout autre tableur. Les donn\u00e9es sont export\u00e9es au format UTF-8 avec s\u00e9parateur virgule.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

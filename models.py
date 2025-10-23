@@ -183,3 +183,35 @@ class ClientInteraction(db.Model):
     
     client = db.relationship('Client', backref='interactions')
     user = db.relationship('User', backref='client_interactions')
+
+class SystemSettings(db.Model):
+    __tablename__ = 'system_settings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    organization_name = db.Column(db.String(200), default='FinanceManager')
+    currency = db.Column(db.String(10), default='FCFA')
+    language = db.Column(db.String(10), default='fr')
+    date_format = db.Column(db.String(20), default='%d/%m/%Y')
+    penalty_rate = db.Column(db.Float, default=5.0)
+    enable_email_notifications = db.Column(db.Boolean, default=False)
+    enable_sms_notifications = db.Column(db.Boolean, default=False)
+    auto_backup_enabled = db.Column(db.Boolean, default=False)
+    backup_frequency_days = db.Column(db.Integer, default=7)
+    late_payment_grace_period = db.Column(db.Integer, default=3)
+    interest_calculation_method = db.Column(db.String(20), default='simple')
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    notification_type = db.Column(db.String(50))
+    related_entity_type = db.Column(db.String(50))
+    related_entity_id = db.Column(db.Integer)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='notifications')

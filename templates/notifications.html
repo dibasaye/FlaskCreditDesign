@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="page-title">
+                        <i class="fas fa-bell me-2"></i>Notifications
+                    </h1>
+                    <p class="text-muted">Centre de notifications et alertes</p>
+                </div>
+                <div>
+                    <form method="POST" action="{{ url_for('mark_all_notifications_read') }}" class="d-inline">
+                        <button type="submit" class="btn btn-outline-primary">
+                            <i class="fas fa-check-double me-2"></i>Tout marquer comme lu
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            {% if notifications.items %}
+            <div class="list-group">
+                {% for notification in notifications.items %}
+                <div class="list-group-item {% if not notification.is_read %}list-group-item-primary{% endif %}">
+                    <div class="d-flex w-100 justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-2">
+                                {% if notification.notification_type == 'credit' %}
+                                <i class="fas fa-hand-holding-usd fa-2x text-success me-3"></i>
+                                {% elif notification.notification_type == 'payment' %}
+                                <i class="fas fa-money-bill-wave fa-2x text-primary me-3"></i>
+                                {% elif notification.notification_type == 'alert' %}
+                                <i class="fas fa-exclamation-triangle fa-2x text-warning me-3"></i>
+                                {% elif notification.notification_type == 'system' %}
+                                <i class="fas fa-cog fa-2x text-info me-3"></i>
+                                {% else %}
+                                <i class="fas fa-info-circle fa-2x text-secondary me-3"></i>
+                                {% endif %}
+                                <div>
+                                    <h5 class="mb-1">{{ notification.title }}</h5>
+                                    <p class="mb-0 text-muted">{{ notification.message }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-end ms-3">
+                            <small class="text-muted d-block mb-2">
+                                <i class="fas fa-clock me-1"></i>{{ notification.created_at.strftime('%d/%m/%Y \u00e0 %H:%M') }}
+                            </small>
+                            {% if not notification.is_read %}
+                            <form method="POST" action="{{ url_for('mark_notification_read', id=notification.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-check me-1"></i>Marquer lu
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="badge bg-success"><i class="fas fa-check me-1"></i>Lu</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            {% if notifications.has_prev or notifications.has_next %}
+            <nav aria-label="Navigation des notifications" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if notifications.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('notifications', page=notifications.prev_num) }}">
+                            <i class="fas fa-chevron-left"></i> Pr\u00e9c\u00e9dent
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for page_num in notifications.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                        {% if page_num %}
+                            {% if page_num == notifications.page %}
+                            <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                            {% else %}
+                            <li class="page-item"><a class="page-link" href="{{ url_for('notifications', page=page_num) }}">{{ page_num }}</a></li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if notifications.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('notifications', page=notifications.next_num) }}">
+                            Suivant <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            
+            {% else %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-bell-slash fa-5x text-muted mb-4"></i>
+                    <h3 class="text-muted">Aucune notification</h3>
+                    <p class="text-muted">Vous n'avez aucune notification pour le moment</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

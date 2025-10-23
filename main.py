@@ -3,8 +3,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Client, Product, Credit, CreditPayment, SavingsAccount, SavingsTransaction, PaymentSchedule, AuditLog, ClientInteraction
-from forms import LoginForm, ClientForm, ProductForm, CreditForm, CreditPaymentForm, SavingsAccountForm, SavingsTransactionForm, ProfileForm, ChangePasswordForm, LoanSimulationForm, ClientInteractionForm
+from models import db, User, Client, Product, Credit, CreditPayment, SavingsAccount, SavingsTransaction, PaymentSchedule, AuditLog, ClientInteraction, SystemSettings, Notification
+from forms import LoginForm, ClientForm, ProductForm, CreditForm, CreditPaymentForm, SavingsAccountForm, SavingsTransactionForm, ProfileForm, ChangePasswordForm, LoanSimulationForm, ClientInteractionForm, SystemSettingsForm, UserForm
 from sqlalchemy import func
 import random
 import string
@@ -151,6 +151,12 @@ with app.app_context():
         db.session.add(admin)
         db.session.commit()
         print(f"Utilisateur administrateur '{admin_username}' créé avec succès")
+    
+    if not SystemSettings.query.first():
+        default_settings = SystemSettings()
+        db.session.add(default_settings)
+        db.session.commit()
+        print("Paramètres système par défaut créés")
 
 @app.route('/')
 def index():
@@ -664,6 +670,14 @@ def settings():
     profile_form = ProfileForm(obj=current_user)
     password_form = ChangePasswordForm()
     
+    system_settings = SystemSettings.query.first()
+    if not system_settings:
+        system_settings = SystemSettings()
+        db.session.add(system_settings)
+        db.session.commit()
+    
+    settings_form = SystemSettingsForm(obj=system_settings)
+    
     if profile_form.validate_on_submit() and 'profile_submit' in request.form:
         existing_user = User.query.filter(User.username == profile_form.username.data, User.id != current_user.id).first()
         if existing_user:
@@ -686,7 +700,216 @@ def settings():
             flash('Mot de passe changé avec succès!', 'success')
             return redirect(url_for('settings'))
     
-    return render_template('settings.html', profile_form=profile_form, password_form=password_form)
+    if settings_form.validate_on_submit() and 'system_submit' in request.form:
+        if current_user.role != 'administrateur':
+            flash('Accès non autorisé', 'danger')
+            return redirect(url_for('settings'))
+        
+        settings_form.populate_obj(system_settings)
+        db.session.commit()
+        flash('Paramètres système mis à jour avec succès!', 'success')
+        return redirect(url_for('settings'))
+    
+    users = User.query.all() if current_user.role == 'administrateur' else []
+    unread_notifications = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
+    
+    return render_template('settings.html', 
+                         profile_form=profile_form, 
+                         password_form=password_form,
+                         settings_form=settings_form,
+                         users=users,
+                         unread_notifications=unread_notifications)
+
+@app.route('/users/new', methods=['GET', 'POST'])
+@login_required
+def new_user():
+    if current_user.role != 'administrateur':
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('settings'))
+    
+    form = UserForm()
+    if form.validate_on_submit():
+        if User.query.filter_by(username=form.username.data).first():
+            flash('Ce nom d\'utilisateur existe déjà', 'danger')
+        elif User.query.filter_by(email=form.email.data).first():
+            flash('Cet email est déjà utilisé', 'danger')
+        else:
+            user = User(username=form.username.data, email=form.email.data, role=form.role.data)
+            user.set_password(form.password.data or 'ChangeMe123')
+            db.session.add(user)
+            log_audit('Utilisateur créé', 'User', None, f'Utilisateur {user.username} créé')
+            db.session.commit()
+            flash(f'Utilisateur {user.username} créé avec succès!', 'success')
+            return redirect(url_for('settings'))
+    return render_template('user_form.html', form=form, title='Nouvel Utilisateur')
+
+@app.route('/users/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_user(id):
+    if current_user.role != 'administrateur':
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('settings'))
+    
+    user = User.query.get_or_404(id)
+    form = UserForm(obj=user)
+    
+    if form.validate_on_submit():
+        existing = User.query.filter(User.username == form.username.data, User.id != id).first()
+        if existing:
+            flash('Ce nom d\'utilisateur est déjà utilisé', 'danger')
+        else:
+            user.username = form.username.data
+            user.email = form.email.data
+            user.role = form.role.data
+            if form.password.data:
+                user.set_password(form.password.data)
+            log_audit('Utilisateur modifié', 'User', user.id, f'Utilisateur {user.username} modifié')
+            db.session.commit()
+            flash(f'Utilisateur {user.username} mis à jour avec succès!', 'success')
+            return redirect(url_for('settings'))
+    
+    return render_template('user_form.html', form=form, title='Modifier Utilisateur', user=user)
+
+@app.route('/users/<int:id>/delete', methods=['POST'])
+@login_required
+def delete_user(id):
+    if current_user.role != 'administrateur':
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('settings'))
+    
+    if id == current_user.id:
+        flash('Vous ne pouvez pas supprimer votre propre compte', 'danger')
+        return redirect(url_for('settings'))
+    
+    user = User.query.get_or_404(id)
+    username = user.username
+    db.session.delete(user)
+    log_audit('Utilisateur supprimé', 'User', id, f'Utilisateur {username} supprimé')
+    db.session.commit()
+    flash(f'Utilisateur {username} supprimé avec succès!', 'success')
+    return redirect(url_for('settings'))
+
+@app.route('/export/clients')
+@login_required
+def export_clients():
+    import csv
+    from io import StringIO
+    from flask import make_response
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['ID Client', 'Prénom', 'Nom', 'Email', 'Téléphone', 'Date de naissance', 'Date de création'])
+    
+    clients = Client.query.all()
+    for client in clients:
+        writer.writerow([
+            client.client_id,
+            client.first_name,
+            client.last_name,
+            client.email or '',
+            client.phone or '',
+            client.date_of_birth.strftime('%Y-%m-%d') if client.date_of_birth else '',
+            client.created_at.strftime('%Y-%m-%d %H:%M')
+        ])
+    
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = 'attachment; filename=clients_export.csv'
+    response.headers['Content-Type'] = 'text/csv'
+    log_audit('Export clients', 'Client', None, f'{len(clients)} clients exportés')
+    return response
+
+@app.route('/export/credits')
+@login_required
+def export_credits():
+    import csv
+    from io import StringIO
+    from flask import make_response
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Numéro', 'Client', 'Produit', 'Montant', 'Taux', 'Durée', 'Paiement Mensuel', 'Montant Total', 'Montant Payé', 'Solde', 'Statut', 'Date Demande'])
+    
+    credits = Credit.query.all()
+    for credit in credits:
+        writer.writerow([
+            credit.credit_number,
+            credit.client.full_name,
+            credit.product.name,
+            credit.amount,
+            credit.interest_rate,
+            credit.duration_months,
+            credit.monthly_payment,
+            credit.total_amount,
+            credit.amount_paid,
+            credit.balance,
+            credit.status,
+            credit.application_date.strftime('%Y-%m-%d')
+        ])
+    
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = 'attachment; filename=credits_export.csv'
+    response.headers['Content-Type'] = 'text/csv'
+    log_audit('Export crédits', 'Credit', None, f'{len(credits)} crédits exportés')
+    return response
+
+@app.route('/export/savings')
+@login_required
+def export_savings():
+    import csv
+    from io import StringIO
+    from flask import make_response
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Numéro Compte', 'Client', 'Produit', 'Solde', 'Taux d\'intérêt', 'Statut', 'Date Ouverture'])
+    
+    accounts = SavingsAccount.query.all()
+    for account in accounts:
+        writer.writerow([
+            account.account_number,
+            account.client.full_name,
+            account.product.name,
+            account.balance,
+            account.interest_rate,
+            account.status,
+            account.opening_date.strftime('%Y-%m-%d')
+        ])
+    
+    output.seek(0)
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = 'attachment; filename=savings_export.csv'
+    response.headers['Content-Type'] = 'text/csv'
+    log_audit('Export épargne', 'SavingsAccount', None, f'{len(accounts)} comptes exportés')
+    return response
+
+@app.route('/notifications')
+@login_required
+def notifications():
+    page = request.args.get('page', 1, type=int)
+    notifications = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc()).paginate(page=page, per_page=20, error_out=False)
+    return render_template('notifications.html', notifications=notifications)
+
+@app.route('/notifications/<int:id>/read', methods=['POST'])
+@login_required
+def mark_notification_read(id):
+    notification = Notification.query.get_or_404(id)
+    if notification.user_id != current_user.id:
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('notifications'))
+    
+    notification.is_read = True
+    db.session.commit()
+    return redirect(url_for('notifications'))
+
+@app.route('/notifications/mark-all-read', methods=['POST'])
+@login_required
+def mark_all_notifications_read():
+    Notification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
+    db.session.commit()
+    flash('Toutes les notifications ont été marquées comme lues', 'success')
+    return redirect(url_for('notifications'))
 
 @app.template_filter('currency')
 def currency_filter(value):

@@ -74,3 +74,33 @@ class ClientInteractionForm(FlaskForm):
     ], validators=[DataRequired()])
     subject = StringField('Sujet', validators=[DataRequired(), Length(max=200)])
     notes = TextAreaField('Notes', validators=[DataRequired()])
+
+class SystemSettingsForm(FlaskForm):
+    organization_name = StringField('Nom de l\'organisation', validators=[DataRequired(), Length(max=200)])
+    currency = StringField('Devise', validators=[DataRequired(), Length(max=10)])
+    language = SelectField('Langue', choices=[('fr', 'Français'), ('en', 'English')], validators=[DataRequired()])
+    date_format = SelectField('Format de date', choices=[
+        ('%d/%m/%Y', 'JJ/MM/AAAA'),
+        ('%m/%d/%Y', 'MM/JJ/AAAA'),
+        ('%Y-%m-%d', 'AAAA-MM-JJ')
+    ], validators=[DataRequired()])
+    penalty_rate = FloatField('Taux de pénalité (%)', validators=[DataRequired(), NumberRange(min=0, max=100)])
+    enable_email_notifications = BooleanField('Activer les notifications par email')
+    enable_sms_notifications = BooleanField('Activer les notifications par SMS')
+    auto_backup_enabled = BooleanField('Activer les sauvegardes automatiques')
+    backup_frequency_days = IntegerField('Fréquence de sauvegarde (jours)', validators=[Optional(), NumberRange(min=1)])
+    late_payment_grace_period = IntegerField('Période de grâce (jours)', validators=[DataRequired(), NumberRange(min=0)])
+    interest_calculation_method = SelectField('Méthode de calcul des intérêts', choices=[
+        ('simple', 'Intérêts simples'),
+        ('compound', 'Intérêts composés')
+    ], validators=[DataRequired()])
+
+class UserForm(FlaskForm):
+    username = StringField('Nom d\'utilisateur', validators=[DataRequired(), Length(min=3, max=80)])
+    email = EmailField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Mot de passe', validators=[Optional(), Length(min=6)])
+    role = SelectField('Rôle', choices=[
+        ('administrateur', 'Administrateur'),
+        ('gestionnaire', 'Gestionnaire'),
+        ('agent', 'Agent')
+    ], validators=[DataRequired()])
