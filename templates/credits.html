@@ -19,6 +19,31 @@
 
     <div class="card shadow-sm">
         <div class="card-body">
+            <form method="GET" action="{{ url_for('credits') }}" class="mb-4">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <input type="text" name="search" class="form-control" placeholder="Rechercher par numéro, client, ID client..." value="{{ search_query or '' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="status" class="form-select">
+                            <option value="">Tous les statuts</option>
+                            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>En attente</option>
+                            <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approuvé</option>
+                            <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Actif</option>
+                            <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Complété</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-search me-1"></i> Rechercher
+                        </button>
+                        <a href="{{ url_for('credits') }}" class="btn btn-secondary">
+                            <i class="fas fa-redo me-1"></i> Réinitialiser
+                        </a>
+                    </div>
+                </div>
+            </form>
+            
             {% if credits %}
             <div class="table-responsive">
                 <table class="table table-hover">

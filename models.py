@@ -215,3 +215,19 @@ class Notification(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     user = db.relationship('User', backref='notifications')
+
+class CreditDocument(db.Model):
+    __tablename__ = 'credit_documents'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    credit_id = db.Column(db.Integer, db.ForeignKey('credits.id'), nullable=False)
+    document_type = db.Column(db.String(50), nullable=False)
+    file_name = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    file_size = db.Column(db.Integer)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+    
+    credit = db.relationship('Credit', backref='documents')
+    uploader = db.relationship('User', backref='uploaded_documents')

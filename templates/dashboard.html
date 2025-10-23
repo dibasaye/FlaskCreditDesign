@@ -63,6 +63,34 @@
         </div>
     </div>
 
+    {% if upcoming_due > 0 or overdue > 0 %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning">
+                <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Alertes de Paiement</h5>
+                <div class="row">
+                    {% if upcoming_due > 0 %}
+                    <div class="col-md-6">
+                        <p class="mb-0">
+                            <i class="fas fa-calendar-alt me-2"></i>
+                            <strong>{{ upcoming_due }}</strong> échéance(s) à venir dans les 7 prochains jours
+                        </p>
+                    </div>
+                    {% endif %}
+                    {% if overdue > 0 %}
+                    <div class="col-md-6">
+                        <p class="mb-0 text-danger">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            <strong>{{ overdue }}</strong> paiement(s) en retard
+                        </p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="row g-4 mb-4">
         <div class="col-lg-4">
             <div class="card h-100 shadow-sm">

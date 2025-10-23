@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Historique de Crédit - {{ client.full_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="page-title">
+                <i class="fas fa-history me-2"></i>Historique de Crédit
+            </h1>
+            <p class="text-muted">{{ client.full_name }} ({{ client.client_id }})</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('client_detail', id=client.id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Retour au Client
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Score de Crédit</h6>
+                    <h3 class="mb-0">{{ credit_score }}/100</h3>
+                    <div class="progress mt-2" style="height: 10px;">
+                        <div class="progress-bar {% if credit_score >= 70 %}bg-success{% elif credit_score >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                             style="width: {{ credit_score }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Total Emprunté</h6>
+                    <h3 class="mb-0 text-primary">{{ total_borrowed|currency }}</h3>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Total Remboursé</h6>
+                    <h3 class="mb-0 text-success">{{ total_repaid|currency }}</h3>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Dette Actuelle</h6>
+                    <h3 class="mb-0 text-danger">{{ current_debt|currency }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">
+                        <i class="fas fa-chart-pie me-2"></i>Performance de Remboursement
+                    </h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Taux de remboursement à temps:</strong> {{ on_time_rate|round(1) }}%</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Nombre total de crédits:</strong> {{ credits|length }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="fas fa-list me-2"></i>Historique Complet des Crédits</h5>
+        </div>
+        <div class="card-body">
+            {% if credits %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Numéro</th>
+                            <th>Produit</th>
+                            <th>Montant</th>
+                            <th>Remboursé</th>
+                            <th>Solde</th>
+                            <th>Statut</th>
+                            <th>Date Demande</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for credit in credits %}
+                        <tr>
+                            <td><strong>{{ credit.credit_number }}</strong></td>
+                            <td>{{ credit.product.name }}</td>
+                            <td>{{ credit.amount|currency }}</td>
+                            <td>{{ credit.amount_paid|currency }}</td>
+                            <td>{{ credit.balance|currency }}</td>
+                            <td>
+                                {% if credit.status == 'pending' %}
+                                    <span class="badge bg-warning">En attente</span>
+                                {% elif credit.status == 'approved' %}
+                                    <span class="badge bg-info">Approuvé</span>
+                                {% elif credit.status == 'active' %}
+                                    <span class="badge bg-success">Actif</span>
+                                {% elif credit.status == 'completed' %}
+                                    <span class="badge bg-secondary">Complété</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ credit.application_date.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <a href="{{ url_for('credit_detail', id=credit.id) }}" class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i> Détails
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Aucun crédit dans l'historique</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -19,6 +19,22 @@
 
     <div class="card shadow-sm">
         <div class="card-body">
+            <form method="GET" action="{{ url_for('clients') }}" class="mb-4">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <input type="text" name="search" class="form-control" placeholder="Rechercher par nom, ID, email, téléphone..." value="{{ search_query or '' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-primary me-2">
+                            <i class="fas fa-search me-1"></i> Rechercher
+                        </button>
+                        <a href="{{ url_for('clients') }}" class="btn btn-secondary">
+                            <i class="fas fa-redo me-1"></i> Réinitialiser
+                        </a>
+                    </div>
+                </div>
+            </form>
+            
             {% if clients %}
             <div class="table-responsive">
                 <table class="table table-hover">

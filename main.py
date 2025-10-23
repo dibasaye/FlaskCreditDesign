@@ -3,7 +3,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Client, Product, Credit, CreditPayment, SavingsAccount, SavingsTransaction, PaymentSchedule, AuditLog, ClientInteraction, SystemSettings, Notification
+from models import db, User, Client, Product, Credit, CreditPayment, SavingsAccount, SavingsTransaction, PaymentSchedule, AuditLog, ClientInteraction, SystemSettings, Notification, CreditDocument
 from forms import LoginForm, ClientForm, ProductForm, CreditForm, CreditPaymentForm, SavingsAccountForm, SavingsTransactionForm, ProfileForm, ChangePasswordForm, LoanSimulationForm, ClientInteractionForm, SystemSettingsForm, UserForm
 from sqlalchemy import func
 import random
@@ -138,6 +138,75 @@ def apply_savings_interest(account):
         )
         db.session.add(transaction)
 
+def generate_payment_alerts():
+    from datetime import datetime, timedelta
+    
+    today = datetime.now().date()
+    alert_window = today + timedelta(days=7)
+    
+    upcoming_payments = PaymentSchedule.query.filter(
+        PaymentSchedule.due_date <= alert_window,
+        PaymentSchedule.due_date >= today,
+        PaymentSchedule.paid == False
+    ).all()
+    
+    for payment in upcoming_payments:
+        credit = payment.credit
+        days_until_due = (payment.due_date - today).days
+        
+        existing_alert = Notification.query.filter_by(
+            notification_type='payment_reminder',
+            related_entity_type='PaymentSchedule',
+            related_entity_id=payment.id,
+            is_read=False
+        ).first()
+        
+        if not existing_alert:
+            all_admins = User.query.filter(User.role.in_(['administrateur', 'gestionnaire'])).all()
+            
+            for admin in all_admins:
+                notification = Notification(
+                    user_id=admin.id,
+                    title=f'Échéance dans {days_until_due} jour(s)',
+                    message=f'Le crédit {credit.credit_number} de {credit.client.full_name} a une échéance de {payment.expected_amount} FCFA le {payment.due_date.strftime("%d/%m/%Y")}',
+                    notification_type='payment_reminder',
+                    related_entity_type='PaymentSchedule',
+                    related_entity_id=payment.id
+                )
+                db.session.add(notification)
+    
+    overdue_payments = PaymentSchedule.query.filter(
+        PaymentSchedule.due_date < today,
+        PaymentSchedule.paid == False
+    ).all()
+    
+    for payment in overdue_payments:
+        credit = payment.credit
+        days_overdue = (today - payment.due_date).days
+        
+        existing_alert = Notification.query.filter_by(
+            notification_type='payment_overdue',
+            related_entity_type='PaymentSchedule',
+            related_entity_id=payment.id,
+            is_read=False
+        ).first()
+        
+        if not existing_alert:
+            all_admins = User.query.filter(User.role.in_(['administrateur', 'gestionnaire'])).all()
+            
+            for admin in all_admins:
+                notification = Notification(
+                    user_id=admin.id,
+                    title=f'⚠️ Paiement en retard de {days_overdue} jour(s)',
+                    message=f'ALERTE: Le crédit {credit.credit_number} de {credit.client.full_name} a un paiement en retard depuis le {payment.due_date.strftime("%d/%m/%Y")}. Montant: {payment.expected_amount} FCFA',
+                    notification_type='payment_overdue',
+                    related_entity_type='PaymentSchedule',
+                    related_entity_id=payment.id
+                )
+                db.session.add(notification)
+    
+    db.session.commit()
+
 with app.app_context():
     db.create_all()
     
@@ -151,6 +220,26 @@ with app.app_context():
         db.session.add(admin)
         db.session.commit()
         print(f"Utilisateur administrateur '{admin_username}' créé avec succès")
+    
+    default_users = [
+        {'username': 'gestionnaire1', 'email': 'gestionnaire1@finance.com', 'password': 'Manager@123', 'role': 'gestionnaire'},
+        {'username': 'gestionnaire2', 'email': 'gestionnaire2@finance.com', 'password': 'Manager@123', 'role': 'gestionnaire'},
+        {'username': 'agent1', 'email': 'agent1@finance.com', 'password': 'Agent@123', 'role': 'agent'},
+        {'username': 'agent2', 'email': 'agent2@finance.com', 'password': 'Agent@123', 'role': 'agent'},
+        {'username': 'agent3', 'email': 'agent3@finance.com', 'password': 'Agent@123', 'role': 'agent'},
+    ]
+    
+    for user_data in default_users:
+        if not User.query.filter_by(username=user_data['username']).first():
+            user = User(
+                username=user_data['username'],
+                email=user_data['email'],
+                role=user_data['role']
+            )
+            user.set_password(user_data['password'])
+            db.session.add(user)
+    
+    db.session.commit()
     
     if not SystemSettings.query.first():
         default_settings = SystemSettings()
@@ -191,6 +280,8 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    generate_payment_alerts()
+    
     total_clients = Client.query.count()
     total_credits = Credit.query.count()
     active_credits = Credit.query.filter_by(status='active').count()
@@ -208,6 +299,18 @@ def dashboard():
     credit_products = Product.query.filter_by(product_type='credit', active=True).count()
     savings_products = Product.query.filter_by(product_type='savings', active=True).count()
     
+    from datetime import datetime, timedelta
+    upcoming_due = PaymentSchedule.query.filter(
+        PaymentSchedule.due_date <= datetime.now().date() + timedelta(days=7),
+        PaymentSchedule.due_date >= datetime.now().date(),
+        PaymentSchedule.paid == False
+    ).count()
+    
+    overdue = PaymentSchedule.query.filter(
+        PaymentSchedule.due_date < datetime.now().date(),
+        PaymentSchedule.paid == False
+    ).count()
+    
     return render_template('dashboard.html',
                          total_clients=total_clients,
                          total_credits=total_credits,
@@ -220,13 +323,32 @@ def dashboard():
                          recent_clients=recent_clients,
                          pending_credits=pending_credits,
                          credit_products=credit_products,
-                         savings_products=savings_products)
+                         savings_products=savings_products,
+                         upcoming_due=upcoming_due,
+                         overdue=overdue)
 
 @app.route('/clients')
 @login_required
 def clients():
-    clients_list = Client.query.order_by(Client.created_at.desc()).all()
-    return render_template('clients.html', clients=clients_list)
+    search_query = request.args.get('search', '')
+    filter_status = request.args.get('status', '')
+    
+    query = Client.query
+    
+    if search_query:
+        search_pattern = f'%{search_query}%'
+        query = query.filter(
+            db.or_(
+                Client.first_name.ilike(search_pattern),
+                Client.last_name.ilike(search_pattern),
+                Client.client_id.ilike(search_pattern),
+                Client.email.ilike(search_pattern),
+                Client.phone.ilike(search_pattern)
+            )
+        )
+    
+    clients_list = query.order_by(Client.created_at.desc()).all()
+    return render_template('clients.html', clients=clients_list, search_query=search_query)
 
 @app.route('/clients/new', methods=['GET', 'POST'])
 @login_required
@@ -347,8 +469,27 @@ def edit_product(id):
 @app.route('/credits')
 @login_required
 def credits():
-    credits_list = Credit.query.order_by(Credit.application_date.desc()).all()
-    return render_template('credits.html', credits=credits_list)
+    search_query = request.args.get('search', '')
+    status_filter = request.args.get('status', '')
+    
+    query = Credit.query.join(Client)
+    
+    if search_query:
+        search_pattern = f'%{search_query}%'
+        query = query.filter(
+            db.or_(
+                Credit.credit_number.ilike(search_pattern),
+                Client.first_name.ilike(search_pattern),
+                Client.last_name.ilike(search_pattern),
+                Client.client_id.ilike(search_pattern)
+            )
+        )
+    
+    if status_filter:
+        query = query.filter(Credit.status == status_filter)
+    
+    credits_list = query.order_by(Credit.application_date.desc()).all()
+    return render_template('credits.html', credits=credits_list, search_query=search_query, status_filter=status_filter)
 
 @app.route('/credits/new', methods=['GET', 'POST'])
 @login_required
@@ -910,6 +1051,31 @@ def mark_all_notifications_read():
     db.session.commit()
     flash('Toutes les notifications ont été marquées comme lues', 'success')
     return redirect(url_for('notifications'))
+
+@app.route('/clients/<int:id>/credit-history')
+@login_required
+def client_credit_history(id):
+    client = Client.query.get_or_404(id)
+    credits = Credit.query.filter_by(client_id=id).order_by(Credit.application_date.desc()).all()
+    
+    total_borrowed = sum(c.amount for c in credits if c.status in ['active', 'completed'])
+    total_repaid = sum(c.amount_paid for c in credits)
+    current_debt = sum(c.balance for c in credits if c.status == 'active')
+    
+    completed_on_time = sum(1 for c in credits if c.status == 'completed' and len(c.overdue_installments) == 0)
+    total_completed = sum(1 for c in credits if c.status == 'completed')
+    
+    on_time_rate = (completed_on_time / total_completed * 100) if total_completed > 0 else 100
+    credit_score = calculate_client_credit_score(client)
+    
+    return render_template('client_credit_history.html', 
+                         client=client,
+                         credits=credits,
+                         total_borrowed=total_borrowed,
+                         total_repaid=total_repaid,
+                         current_debt=current_debt,
+                         on_time_rate=on_time_rate,
+                         credit_score=credit_score)
 
 @app.template_filter('currency')
 def currency_filter(value):
