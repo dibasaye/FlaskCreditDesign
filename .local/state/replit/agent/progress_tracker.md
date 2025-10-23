@@ -14,3 +14,4 @@
 [x] 14. Enhanced dashboard with payment deadline metrics (upcoming and overdue)
 [x] 15. Added CreditDocument model for document management
 [x] 16. Created detailed credit history page for each client with score and performance metrics
+[x] 17. Renamed main.py to app.py and updated workflow configuration
