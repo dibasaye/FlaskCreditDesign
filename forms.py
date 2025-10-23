@@ -58,3 +58,19 @@ class ChangePasswordForm(FlaskForm):
     current_password = PasswordField('Mot de passe actuel', validators=[DataRequired()])
     new_password = PasswordField('Nouveau mot de passe', validators=[DataRequired(), Length(min=6)])
     confirm_password = PasswordField('Confirmer le mot de passe', validators=[DataRequired()])
+
+class LoanSimulationForm(FlaskForm):
+    product_id = SelectField('Produit de crédit', coerce=int, validators=[DataRequired()])
+    amount = FloatField('Montant souhaité', validators=[DataRequired(), NumberRange(min=1)])
+    duration_months = IntegerField('Durée (mois)', validators=[DataRequired(), NumberRange(min=1)])
+
+class ClientInteractionForm(FlaskForm):
+    interaction_type = SelectField('Type d\'interaction', choices=[
+        ('appel', 'Appel téléphonique'),
+        ('visite', 'Visite'),
+        ('email', 'Email'),
+        ('reunion', 'Réunion'),
+        ('autre', 'Autre')
+    ], validators=[DataRequired()])
+    subject = StringField('Sujet', validators=[DataRequired(), Length(max=200)])
+    notes = TextAreaField('Notes', validators=[DataRequired()])

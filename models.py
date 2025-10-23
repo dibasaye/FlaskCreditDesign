@@ -79,23 +79,32 @@ class Credit(db.Model):
     monthly_payment = db.Column(db.Float, nullable=False)
     total_amount = db.Column(db.Float, nullable=False)
     amount_paid = db.Column(db.Float, default=0)
+    penalty_amount = db.Column(db.Float, default=0)
     status = db.Column(db.String(20), default='pending')
     application_date = db.Column(db.DateTime, default=datetime.utcnow)
     approval_date = db.Column(db.DateTime)
     disbursement_date = db.Column(db.DateTime)
     notes = db.Column(db.Text)
+    collateral = db.Column(db.Text)
+    credit_score = db.Column(db.Float)
     
     payments = db.relationship('CreditPayment', backref='credit', lazy=True, cascade='all, delete-orphan')
+    payment_schedule = db.relationship('PaymentSchedule', backref='credit', lazy=True, cascade='all, delete-orphan')
     
     @property
     def balance(self):
-        return self.total_amount - self.amount_paid
+        return self.total_amount + self.penalty_amount - self.amount_paid
     
     @property
     def progress_percentage(self):
         if self.total_amount > 0:
             return (self.amount_paid / self.total_amount) * 100
         return 0
+    
+    @property
+    def overdue_installments(self):
+        from datetime import datetime
+        return [s for s in self.payment_schedule if s.due_date < datetime.now().date() and not s.paid]
 
 class CreditPayment(db.Model):
     __tablename__ = 'credit_payments'
@@ -134,3 +143,43 @@ class SavingsTransaction(db.Model):
     balance_after = db.Column(db.Float, nullable=False)
     reference = db.Column(db.String(100))
     notes = db.Column(db.Text)
+
+class PaymentSchedule(db.Model):
+    __tablename__ = 'payment_schedule'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    credit_id = db.Column(db.Integer, db.ForeignKey('credits.id'), nullable=False)
+    installment_number = db.Column(db.Integer, nullable=False)
+    due_date = db.Column(db.Date, nullable=False)
+    expected_amount = db.Column(db.Float, nullable=False)
+    paid = db.Column(db.Boolean, default=False)
+    paid_date = db.Column(db.Date)
+    paid_amount = db.Column(db.Float, default=0)
+
+class AuditLog(db.Model):
+    __tablename__ = 'audit_logs'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    action = db.Column(db.String(100), nullable=False)
+    entity_type = db.Column(db.String(50))
+    entity_id = db.Column(db.Integer)
+    details = db.Column(db.Text)
+    ip_address = db.Column(db.String(50))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='audit_logs')
+
+class ClientInteraction(db.Model):
+    __tablename__ = 'client_interactions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('clients.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    interaction_type = db.Column(db.String(50), nullable=False)
+    subject = db.Column(db.String(200))
+    notes = db.Column(db.Text)
+    interaction_date = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    client = db.relationship('Client', backref='interactions')
+    user = db.relationship('User', backref='client_interactions')

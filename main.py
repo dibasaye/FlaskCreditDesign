@@ -2,11 +2,12 @@ import os
 from datetime import datetime
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Client, Product, Credit, CreditPayment, SavingsAccount, SavingsTransaction
-from forms import LoginForm, ClientForm, ProductForm, CreditForm, CreditPaymentForm, SavingsAccountForm, SavingsTransactionForm, ProfileForm, ChangePasswordForm
+from models import db, User, Client, Product, Credit, CreditPayment, SavingsAccount, SavingsTransaction, PaymentSchedule, AuditLog, ClientInteraction
+from forms import LoginForm, ClientForm, ProductForm, CreditForm, CreditPaymentForm, SavingsAccountForm, SavingsTransactionForm, ProfileForm, ChangePasswordForm, LoanSimulationForm, ClientInteractionForm
 from sqlalchemy import func
 import random
 import string
+from dateutil.relativedelta import relativedelta
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET") or "dev-secret-key-change-in-production"
@@ -33,6 +34,106 @@ def generate_unique_id(prefix, model, field):
         unique_id = f"{prefix}{random_part}"
         if not model.query.filter(getattr(model, field) == unique_id).first():
             return unique_id
+
+def log_audit(action, entity_type=None, entity_id=None, details=None):
+    log = AuditLog(
+        user_id=current_user.id if current_user.is_authenticated else None,
+        action=action,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details=details,
+        ip_address=request.remote_addr
+    )
+    db.session.add(log)
+
+def generate_payment_schedule(credit):
+    if not credit.disbursement_date:
+        return
+    
+    PaymentSchedule.query.filter_by(credit_id=credit.id).delete()
+    
+    start_date = credit.disbursement_date
+    for i in range(1, credit.duration_months + 1):
+        due_date = start_date + relativedelta(months=i)
+        schedule = PaymentSchedule(
+            credit_id=credit.id,
+            installment_number=i,
+            due_date=due_date.date(),
+            expected_amount=credit.monthly_payment
+        )
+        db.session.add(schedule)
+
+def calculate_penalties(credit):
+    from datetime import datetime, timedelta
+    penalty_rate = 0.05
+    total_penalty = 0
+    
+    for installment in credit.payment_schedule:
+        if not installment.paid and installment.due_date < datetime.now().date():
+            days_late = (datetime.now().date() - installment.due_date).days
+            if days_late > 0:
+                penalty = installment.expected_amount * penalty_rate * (days_late / 30)
+                total_penalty += penalty
+    
+    return round(total_penalty, 2)
+
+def calculate_client_credit_score(client):
+    total_credits = Credit.query.filter_by(client_id=client.id).count()
+    if total_credits == 0:
+        return 50
+    
+    completed_credits = Credit.query.filter_by(client_id=client.id, status='completed').count()
+    active_credits = Credit.query.filter_by(client_id=client.id, status='active').all()
+    
+    score = 50
+    
+    if total_credits > 0:
+        completion_rate = completed_credits / total_credits
+        score += completion_rate * 30
+    
+    for credit in active_credits:
+        if credit.amount_paid > 0:
+            payment_ratio = credit.amount_paid / credit.total_amount
+            score += payment_ratio * 10
+        
+        overdue_count = len(credit.overdue_installments)
+        if overdue_count > 0:
+            score -= overdue_count * 5
+    
+    return max(0, min(100, round(score, 2)))
+
+def apply_savings_interest(account):
+    if account.status != 'active':
+        return
+    
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
+    
+    last_transaction = SavingsTransaction.query.filter_by(
+        account_id=account.id,
+        transaction_type='interest'
+    ).order_by(SavingsTransaction.transaction_date.desc()).first()
+    
+    current_date = datetime.now()
+    last_interest_date = last_transaction.transaction_date if last_transaction else account.opening_date
+    
+    delta = relativedelta(current_date, last_interest_date)
+    months_passed = delta.years * 12 + delta.months
+    
+    if months_passed >= 1 and account.balance > 0:
+        monthly_rate = account.interest_rate / 100 / 12
+        interest_amount = account.balance * monthly_rate * months_passed
+        
+        account.balance += interest_amount
+        
+        transaction = SavingsTransaction(
+            account_id=account.id,
+            transaction_type='interest',
+            amount=interest_amount,
+            balance_after=account.balance,
+            notes=f'Intérêts calculés pour {months_passed} mois'
+        )
+        db.session.add(transaction)
 
 with app.app_context():
     db.create_all()
@@ -156,7 +257,30 @@ def edit_client(id):
 @login_required
 def client_detail(id):
     client = Client.query.get_or_404(id)
-    return render_template('client_detail.html', client=client)
+    interaction_form = ClientInteractionForm()
+    credit_score = calculate_client_credit_score(client)
+    return render_template('client_detail.html', client=client, interaction_form=interaction_form, credit_score=credit_score)
+
+@app.route('/clients/<int:id>/interaction', methods=['POST'])
+@login_required
+def add_client_interaction(id):
+    client = Client.query.get_or_404(id)
+    form = ClientInteractionForm()
+    
+    if form.validate_on_submit():
+        interaction = ClientInteraction(
+            client_id=id,
+            user_id=current_user.id,
+            interaction_type=form.interaction_type.data,
+            subject=form.subject.data,
+            notes=form.notes.data
+        )
+        db.session.add(interaction)
+        log_audit('Interaction client ajoutée', 'ClientInteraction', None, f'Interaction avec {client.full_name}: {form.subject.data}')
+        db.session.commit()
+        flash('Interaction enregistrée avec succès!', 'success')
+    
+    return redirect(url_for('client_detail', id=id))
 
 @app.route('/clients/<int:id>/delete', methods=['POST'])
 @login_required
@@ -225,6 +349,9 @@ def new_credit():
     form.product_id.choices = [(p.id, p.name) for p in Product.query.filter_by(product_type='credit', active=True).all()]
     
     if form.validate_on_submit():
+        client = Client.query.get(form.client_id.data)
+        credit_score = calculate_client_credit_score(client)
+        
         product = Product.query.get(form.product_id.data)
         amount = form.amount.data
         duration = form.duration_months.data
@@ -247,11 +374,13 @@ def new_credit():
             monthly_payment=round(monthly_payment, 2),
             total_amount=round(total_amount, 2),
             notes=form.notes.data,
+            credit_score=credit_score,
             status='pending'
         )
         db.session.add(credit)
+        log_audit('Demande de crédit créée', 'Credit', None, f'Demande de crédit pour {client.full_name}')
         db.session.commit()
-        flash(f'Demande de crédit {credit.credit_number} créée avec succès!', 'success')
+        flash(f'Demande de crédit {credit.credit_number} créée avec succès! Score de solvabilité: {credit_score}/100', 'success')
         return redirect(url_for('credits'))
     
     return render_template('credit_form.html', form=form, title='Nouvelle Demande de Crédit')
@@ -261,6 +390,13 @@ def new_credit():
 def credit_detail(id):
     credit = Credit.query.get_or_404(id)
     payment_form = CreditPaymentForm()
+    
+    if credit.status == 'active':
+        penalty = calculate_penalties(credit)
+        if penalty != credit.penalty_amount:
+            credit.penalty_amount = penalty
+            db.session.commit()
+    
     return render_template('credit_detail.html', credit=credit, payment_form=payment_form)
 
 @app.route('/credits/<int:id>/approve', methods=['POST'])
@@ -288,6 +424,8 @@ def disburse_credit(id):
     if credit.status == 'approved':
         credit.status = 'active'
         credit.disbursement_date = datetime.utcnow()
+        generate_payment_schedule(credit)
+        log_audit('Crédit décaissé', 'Credit', credit.id, f'Crédit {credit.credit_number} décaissé')
         db.session.commit()
         flash(f'Crédit {credit.credit_number} décaissé avec succès!', 'success')
     return redirect(url_for('credit_detail', id=id))
@@ -316,6 +454,39 @@ def add_credit_payment(id):
         flash(f'Paiement de {form.amount.data} enregistré avec succès!', 'success')
     
     return redirect(url_for('credit_detail', id=id))
+
+@app.route('/loan-simulation', methods=['GET', 'POST'])
+@login_required
+def loan_simulation():
+    form = LoanSimulationForm()
+    form.product_id.choices = [(p.id, p.name) for p in Product.query.filter_by(product_type='credit', active=True).all()]
+    
+    simulation_result = None
+    if form.validate_on_submit():
+        product = Product.query.get(form.product_id.data)
+        amount = form.amount.data
+        duration = form.duration_months.data
+        rate = product.interest_rate / 100 / 12
+        
+        if rate > 0:
+            monthly_payment = (amount * rate * (1 + rate)**duration) / ((1 + rate)**duration - 1)
+        else:
+            monthly_payment = amount / duration
+        
+        total_amount = monthly_payment * duration
+        total_interest = total_amount - amount
+        
+        simulation_result = {
+            'product_name': product.name,
+            'amount': amount,
+            'duration': duration,
+            'interest_rate': product.interest_rate,
+            'monthly_payment': round(monthly_payment, 2),
+            'total_amount': round(total_amount, 2),
+            'total_interest': round(total_interest, 2)
+        }
+    
+    return render_template('loan_simulation.html', form=form, simulation=simulation_result)
 
 @app.route('/savings')
 @login_required
@@ -364,6 +535,40 @@ def savings_detail(id):
     transaction_form = SavingsTransactionForm()
     return render_template('savings_detail.html', account=account, transaction_form=transaction_form)
 
+@app.route('/savings/<int:id>/close', methods=['POST'])
+@login_required
+def close_savings_account(id):
+    if current_user.role not in ['administrateur', 'gestionnaire']:
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('savings'))
+    
+    account = SavingsAccount.query.get_or_404(id)
+    
+    if account.balance > 0:
+        flash('Impossible de clôturer un compte avec un solde positif. Effectuez un retrait complet d\'abord.', 'danger')
+        return redirect(url_for('savings_detail', id=id))
+    
+    account.status = 'closed'
+    account.closing_date = datetime.utcnow()
+    log_audit('Compte d\'épargne clôturé', 'SavingsAccount', account.id, f'Compte {account.account_number} clôturé')
+    db.session.commit()
+    flash(f'Compte d\'épargne {account.account_number} clôturé avec succès!', 'success')
+    return redirect(url_for('savings'))
+
+@app.route('/savings/<int:id>/apply-interest', methods=['POST'])
+@login_required
+def apply_interest(id):
+    if current_user.role not in ['administrateur', 'gestionnaire']:
+        flash('Accès non autorisé', 'danger')
+        return redirect(url_for('savings'))
+    
+    account = SavingsAccount.query.get_or_404(id)
+    apply_savings_interest(account)
+    log_audit('Intérêts d\'épargne appliqués', 'SavingsAccount', account.id, f'Intérêts calculés pour le compte {account.account_number}')
+    db.session.commit()
+    flash(f'Intérêts appliqués au compte {account.account_number}!', 'success')
+    return redirect(url_for('savings_detail', id=id))
+
 @app.route('/savings/<int:id>/transaction', methods=['POST'])
 @login_required
 def add_savings_transaction(id):
@@ -396,6 +601,59 @@ def add_savings_transaction(id):
         flash(f'Transaction de {amount} enregistrée avec succès!', 'success')
     
     return redirect(url_for('savings_detail', id=id))
+
+@app.route('/reports')
+@login_required
+def reports():
+    total_clients = Client.query.count()
+    total_active_credits = Credit.query.filter_by(status='active').count()
+    total_completed_credits = Credit.query.filter_by(status='completed').count()
+    total_pending_credits = Credit.query.filter_by(status='pending').count()
+    
+    total_credit_disbursed = db.session.query(func.sum(Credit.amount)).filter(
+        Credit.status.in_(['active', 'completed'])
+    ).scalar() or 0
+    
+    total_credit_recovered = db.session.query(func.sum(Credit.amount_paid)).filter(
+        Credit.status.in_(['active', 'completed'])
+    ).scalar() or 0
+    
+    total_penalties = db.session.query(func.sum(Credit.penalty_amount)).filter(
+        Credit.status == 'active'
+    ).scalar() or 0
+    
+    recovery_rate = (total_credit_recovered / total_credit_disbursed * 100) if total_credit_disbursed > 0 else 0
+    
+    total_savings_accounts = SavingsAccount.query.filter_by(status='active').count()
+    total_savings_balance = db.session.query(func.sum(SavingsAccount.balance)).filter_by(status='active').scalar() or 0
+    
+    credits_at_risk = Credit.query.filter_by(status='active').all()
+    at_risk_count = sum(1 for c in credits_at_risk if len(c.overdue_installments) > 0)
+    
+    recent_audits = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(20).all()
+    
+    monthly_stats = db.session.query(
+        func.date_trunc('month', Credit.application_date).label('month'),
+        func.count(Credit.id).label('count'),
+        func.sum(Credit.amount).label('total')
+    ).filter(
+        Credit.application_date >= datetime.utcnow() - relativedelta(months=12)
+    ).group_by('month').order_by('month').all()
+    
+    return render_template('reports.html',
+                         total_clients=total_clients,
+                         total_active_credits=total_active_credits,
+                         total_completed_credits=total_completed_credits,
+                         total_pending_credits=total_pending_credits,
+                         total_credit_disbursed=total_credit_disbursed,
+                         total_credit_recovered=total_credit_recovered,
+                         total_penalties=total_penalties,
+                         recovery_rate=recovery_rate,
+                         total_savings_accounts=total_savings_accounts,
+                         total_savings_balance=total_savings_balance,
+                         at_risk_count=at_risk_count,
+                         recent_audits=recent_audits,
+                         monthly_stats=monthly_stats)
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required

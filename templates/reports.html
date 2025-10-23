@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}Rapports et Statistiques - FinanceManager{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h2><i class="fas fa-chart-bar me-2"></i> Rapports et Analyses</h2>
+            <p class="text-muted">Vue d'ensemble des performances et statistiques</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h6 class="text-muted">Total Clients</h6>
+                    <h3 class="text-primary">{{ total_clients }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="text-muted">Crédits Actifs</h6>
+                    <h3 class="text-success">{{ total_active_credits }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h6 class="text-muted">Crédits Complétés</h6>
+                    <h3 class="text-info">{{ total_completed_credits }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="text-muted">Crédits En Attente</h6>
+                    <h3 class="text-warning">{{ total_pending_credits }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Performance des Crédits</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted">Montant Total Décaissé</small>
+                        <h4 class="text-success">{{ total_credit_disbursed|currency }}</h4>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Montant Récupéré</small>
+                        <h4 class="text-info">{{ total_credit_recovered|currency }}</h4>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Taux de Recouvrement</small>
+                        <h4 class="text-primary">{{ "%.2f"|format(recovery_rate) }}%</h4>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Pénalités Accumulées</small>
+                        <h4 class="text-danger">{{ total_penalties|currency }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Épargne</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted">Comptes d'Épargne Actifs</small>
+                        <h4 class="text-info">{{ total_savings_accounts }}</h4>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Solde Total d'Épargne</small>
+                        <h4 class="text-success">{{ total_savings_balance|currency }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">Analyse de Risques</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <small class="text-muted">Crédits à Risque</small>
+                        <h4 class="text-danger">{{ at_risk_count }}</h4>
+                        <small class="text-muted">(avec paiements en retard)</small>
+                    </div>
+                    <div class="mb-3">
+                        <small class="text-muted">Taux de Risque</small>
+                        <h4 class="text-warning">
+                            {% if total_active_credits > 0 %}
+                                {{ "%.2f"|format(at_risk_count / total_active_credits * 100) }}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Journal d'Audit (20 dernières activités)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date/Heure</th>
+                                    <th>Utilisateur</th>
+                                    <th>Action</th>
+                                    <th>Détails</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for audit in recent_audits %}
+                                <tr>
+                                    <td>{{ audit.timestamp.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td>{{ audit.user.username if audit.user else 'Système' }}</td>
+                                    <td><span class="badge bg-info">{{ audit.action }}</span></td>
+                                    <td>{{ audit.details or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
