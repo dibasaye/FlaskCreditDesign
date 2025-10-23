@@ -128,10 +128,21 @@ Application web Flask complète pour la gestion des produits de crédit et d'ép
 ## Déploiement
 Le serveur démarre sur `0.0.0.0:5000` en mode debug pour le développement.
 
+## Fonctionnalités Récentes (Octobre 2025)
+- ✅ **Simulation de prêts** : Calculateur interactif sans création de crédit
+- ✅ **Échéancier de paiement** : Génération automatique lors du décaissement
+- ✅ **Calcul des pénalités** : Pénalités automatiques pour retards de paiement
+- ✅ **Intérêts d'épargne** : Calcul et application automatique des intérêts
+- ✅ **Clôture de comptes** : Fermeture sécurisée des comptes d'épargne
+- ✅ **Audit trail** : Traçabilité complète des activités importantes
+- ✅ **Historique des interactions** : Suivi des communications avec les clients
+- ✅ **Analyse de solvabilité** : Score de crédit automatique pour chaque client
+- ✅ **Rapports avancés** : Tableaux de bord avec analyses de performance et risques
+- ✅ **Gestion des garanties** : Enregistrement des garanties pour les crédits
+
 ## Améliorations Futures
-- Génération de rapports PDF
-- Simulation de prêts avec calculateur interactif
-- Système d'alertes et notifications
-- Audit trail complet
-- Export Excel/CSV
+- Génération de rapports PDF exportables
+- Système d'alertes et notifications par email/SMS
+- Export Excel/CSV des données
 - Système de sauvegarde automatique
+- API REST pour intégrations tierces
