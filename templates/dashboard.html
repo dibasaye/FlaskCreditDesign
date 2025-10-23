@@ -210,27 +210,29 @@
 </div>
 
 <script>
-const creditCtx = document.getElementById('creditChart');
-if (creditCtx) {
-    new Chart(creditCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Remboursé', 'Restant'],
-            datasets: [{
-                data: [{{ total_credit_paid }}, {{ total_credit_amount - total_credit_paid }}],
-                backgroundColor: ['#28a745', '#dc3545'],
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
+document.addEventListener('DOMContentLoaded', function() {
+    const creditCtx = document.getElementById('creditChart');
+    if (creditCtx && typeof Chart !== 'undefined') {
+        new Chart(creditCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Remboursé', 'Restant'],
+                datasets: [{
+                    data: [{{ total_credit_paid }}, {{ total_credit_amount - total_credit_paid }}],
+                    backgroundColor: ['#28a745', '#dc3545'],
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
                 }
             }
-        }
-    });
-}
+        });
+    }
+});
 </script>
 {% endblock %}
