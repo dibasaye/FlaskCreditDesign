@@ -282,6 +282,9 @@ def logout():
 def dashboard():
     generate_payment_alerts()
     
+    from datetime import datetime, timedelta
+    from sqlalchemy import extract
+    
     total_clients = Client.query.count()
     total_credits = Credit.query.count()
     active_credits = Credit.query.filter_by(status='active').count()
@@ -295,11 +298,13 @@ def dashboard():
     recent_clients = Client.query.order_by(Client.created_at.desc()).limit(5).all()
     
     pending_credits = Credit.query.filter_by(status='pending').count()
+    approved_credits = Credit.query.filter_by(status='approved').count()
+    completed_credits = Credit.query.filter_by(status='completed').count()
+    rejected_credits = Credit.query.filter_by(status='rejected').count()
     
     credit_products = Product.query.filter_by(product_type='credit', active=True).count()
     savings_products = Product.query.filter_by(product_type='savings', active=True).count()
     
-    from datetime import datetime, timedelta
     upcoming_due = PaymentSchedule.query.filter(
         PaymentSchedule.due_date <= datetime.now().date() + timedelta(days=7),
         PaymentSchedule.due_date >= datetime.now().date(),
@@ -309,6 +314,51 @@ def dashboard():
     overdue = PaymentSchedule.query.filter(
         PaymentSchedule.due_date < datetime.now().date(),
         PaymentSchedule.paid == False
+    ).count()
+    
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+    new_clients_month = Client.query.filter(Client.created_at >= thirty_days_ago).count()
+    new_credits_month = Credit.query.filter(Credit.application_date >= thirty_days_ago).count()
+    
+    monthly_data = []
+    monthly_labels = []
+    for i in range(5, -1, -1):
+        month_date = datetime.now() - timedelta(days=30*i)
+        month_name = month_date.strftime('%B')
+        month_num = month_date.month
+        year = month_date.year
+        
+        credits_count = Credit.query.filter(
+            extract('month', Credit.application_date) == month_num,
+            extract('year', Credit.application_date) == year
+        ).count()
+        
+        credits_amount = db.session.query(func.sum(Credit.amount)).filter(
+            extract('month', Credit.application_date) == month_num,
+            extract('year', Credit.application_date) == year
+        ).scalar() or 0
+        
+        payments_amount = db.session.query(func.sum(CreditPayment.amount)).join(Credit).filter(
+            extract('month', CreditPayment.payment_date) == month_num,
+            extract('year', CreditPayment.payment_date) == year
+        ).scalar() or 0
+        
+        monthly_labels.append(month_name[:3])
+        monthly_data.append({
+            'credits_count': credits_count,
+            'credits_amount': float(credits_amount),
+            'payments_amount': float(payments_amount)
+        })
+    
+    total_payments = db.session.query(func.sum(CreditPayment.amount)).scalar() or 0
+    avg_credit_amount = db.session.query(func.avg(Credit.amount)).filter(Credit.status.in_(['active', 'approved', 'disbursed'])).scalar() or 0
+    avg_savings_balance = db.session.query(func.avg(SavingsAccount.balance)).filter_by(status='active').scalar() or 0
+    
+    repayment_rate = (total_credit_paid / total_credit_amount * 100) if total_credit_amount > 0 else 0
+    
+    risk_clients = Credit.query.filter(
+        Credit.status == 'active',
+        Credit.penalty_amount > 0
     ).count()
     
     return render_template('dashboard.html',
@@ -322,10 +372,22 @@ def dashboard():
                          recent_credits=recent_credits,
                          recent_clients=recent_clients,
                          pending_credits=pending_credits,
+                         approved_credits=approved_credits,
+                         completed_credits=completed_credits,
+                         rejected_credits=rejected_credits,
                          credit_products=credit_products,
                          savings_products=savings_products,
                          upcoming_due=upcoming_due,
-                         overdue=overdue)
+                         overdue=overdue,
+                         new_clients_month=new_clients_month,
+                         new_credits_month=new_credits_month,
+                         monthly_labels=monthly_labels,
+                         monthly_data=monthly_data,
+                         total_payments=total_payments,
+                         avg_credit_amount=avg_credit_amount,
+                         avg_savings_balance=avg_savings_balance,
+                         repayment_rate=repayment_rate,
+                         risk_clients=risk_clients)
 
 @app.route('/clients')
 @login_required
@@ -751,6 +813,148 @@ def add_savings_transaction(id):
         flash(f'Transaction de {amount} enregistrée avec succès!', 'success')
     
     return redirect(url_for('savings_detail', id=id))
+
+@app.route('/analytics')
+@login_required
+def analytics():
+    from datetime import datetime, timedelta
+    from sqlalchemy import extract
+    
+    today = datetime.now().date()
+    current_month = datetime.now().month
+    current_year = datetime.now().year
+    
+    total_clients = Client.query.count()
+    total_credits = Credit.query.count()
+    active_credits = Credit.query.filter_by(status='active').count()
+    
+    total_disbursed = db.session.query(func.sum(Credit.amount)).filter(
+        Credit.status.in_(['active', 'approved', 'disbursed', 'completed'])
+    ).scalar() or 0
+    
+    total_recovered = db.session.query(func.sum(Credit.amount_paid)).filter(
+        Credit.status.in_(['active', 'completed'])
+    ).scalar() or 0
+    
+    total_outstanding = total_disbursed - total_recovered
+    recovery_rate = (total_recovered / total_disbursed * 100) if total_disbursed > 0 else 0
+    
+    credits_by_month = []
+    payments_by_month = []
+    month_labels = []
+    
+    for i in range(11, -1, -1):
+        month_date = datetime.now() - timedelta(days=30*i)
+        month_name = month_date.strftime('%b %Y')
+        month_num = month_date.month
+        year = month_date.year
+        
+        month_credits = db.session.query(func.sum(Credit.amount)).filter(
+            extract('month', Credit.application_date) == month_num,
+            extract('year', Credit.application_date) == year
+        ).scalar() or 0
+        
+        month_payments = db.session.query(func.sum(CreditPayment.amount)).join(Credit).filter(
+            extract('month', CreditPayment.payment_date) == month_num,
+            extract('year', CreditPayment.payment_date) == year
+        ).scalar() or 0
+        
+        month_labels.append(month_name)
+        credits_by_month.append(float(month_credits))
+        payments_by_month.append(float(month_payments))
+    
+    avg_last_3_months = sum(credits_by_month[-3:]) / 3 if len(credits_by_month) >= 3 else 0
+    projected_next_month = avg_last_3_months
+    
+    clients_by_status = {
+        'active': Client.query.join(Credit).filter(Credit.status == 'active').distinct().count(),
+        'completed': Client.query.join(Credit).filter(Credit.status == 'completed').distinct().count(),
+        'no_credit': Client.query.outerjoin(Credit).group_by(Client.id).having(func.count(Credit.id) == 0).count()
+    }
+    
+    top_clients = db.session.query(
+        Client,
+        func.count(Credit.id).label('credit_count'),
+        func.sum(Credit.amount).label('total_amount')
+    ).join(Credit).group_by(Client.id).order_by(func.sum(Credit.amount).desc()).limit(10).all()
+    
+    overdue_credits = Credit.query.join(PaymentSchedule).filter(
+        Credit.status == 'active',
+        PaymentSchedule.paid == False,
+        PaymentSchedule.due_date < today
+    ).distinct().count()
+    
+    total_penalties = db.session.query(func.sum(Credit.penalty_amount)).filter(
+        Credit.status == 'active'
+    ).scalar() or 0
+    
+    portfolio_quality = {
+        'excellent': Credit.query.filter(Credit.status == 'active', Credit.credit_score >= 80).count(),
+        'good': Credit.query.filter(Credit.status == 'active', Credit.credit_score >= 60, Credit.credit_score < 80).count(),
+        'medium': Credit.query.filter(Credit.status == 'active', Credit.credit_score >= 40, Credit.credit_score < 60).count(),
+        'poor': Credit.query.filter(Credit.status == 'active', Credit.credit_score < 40).count()
+    }
+    
+    products_performance = db.session.query(
+        Product.name,
+        func.count(Credit.id).label('count'),
+        func.sum(Credit.amount).label('total_amount'),
+        func.avg(Credit.credit_score).label('avg_score')
+    ).join(Credit).group_by(Product.id, Product.name).all()
+    
+    return render_template('analytics.html',
+                         total_clients=total_clients,
+                         total_credits=total_credits,
+                         active_credits=active_credits,
+                         total_disbursed=total_disbursed,
+                         total_recovered=total_recovered,
+                         total_outstanding=total_outstanding,
+                         recovery_rate=recovery_rate,
+                         month_labels=month_labels,
+                         credits_by_month=credits_by_month,
+                         payments_by_month=payments_by_month,
+                         projected_next_month=projected_next_month,
+                         clients_by_status=clients_by_status,
+                         top_clients=top_clients,
+                         overdue_credits=overdue_credits,
+                         total_penalties=total_penalties,
+                         portfolio_quality=portfolio_quality,
+                         products_performance=products_performance)
+
+@app.route('/map')
+@login_required
+def client_map():
+    clients = Client.query.all()
+    
+    clients_data = []
+    import random
+    base_lat = 5.3600
+    base_lng = -4.0083
+    
+    for client in clients:
+        lat_offset = random.uniform(-0.5, 0.5)
+        lng_offset = random.uniform(-0.5, 0.5)
+        
+        active_credits = Credit.query.filter_by(client_id=client.id, status='active').count()
+        total_amount = db.session.query(func.sum(Credit.amount)).filter_by(client_id=client.id).scalar() or 0
+        
+        status_color = 'green' if active_credits == 0 else 'blue' if active_credits == 1 else 'orange'
+        
+        clients_data.append({
+            'id': client.id,
+            'name': client.full_name,
+            'client_id': client.client_id,
+            'address': client.address or 'Adresse non renseignée',
+            'phone': client.phone or 'N/A',
+            'email': client.email or 'N/A',
+            'lat': base_lat + lat_offset,
+            'lng': base_lng + lng_offset,
+            'active_credits': active_credits,
+            'total_amount': float(total_amount),
+            'color': status_color
+        })
+    
+    return render_template('map.html', clients_data=clients_data)
 
 @app.route('/reports')
 @login_required

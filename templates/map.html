@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}Carte des Clients{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="page-title">
+                <i class="fas fa-map-marked-alt me-2"></i>Carte Interactive des Clients
+            </h1>
+            <p class="text-muted">Visualisation géographique et analyse spatiale de votre portefeuille</p>
+        </div>
+    </div>
+
+    <!-- Statistiques et filtres -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="stat-box bg-primary text-white">
+                <h3 id="total-clients">{{ clients_data|length }}</h3>
+                <p>Clients sur la carte</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box bg-success text-white">
+                <h3 id="no-credit-clients">0</h3>
+                <p>Clients sans crédit actif</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box bg-warning text-white">
+                <h3 id="active-clients">0</h3>
+                <p>Clients avec crédits actifs</p>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-box bg-info text-white">
+                <h3 id="total-portfolio">0 FCFA</h3>
+                <p>Portefeuille Total</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Légende et Carte -->
+    <div class="row">
+        <div class="col-lg-9">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="fas fa-globe-africa me-2 text-primary"></i>Carte Interactive</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="map" style="height: 600px; width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3">
+            <div class="card shadow-lg border-0 mb-3">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Légende</h6>
+                </div>
+                <div class="card-body">
+                    <div class="legend-item mb-3">
+                        <i class="fas fa-map-marker-alt text-success fa-2x"></i>
+                        <div>
+                            <strong>Vert</strong>
+                            <p class="mb-0 small text-muted">Aucun crédit actif</p>
+                        </div>
+                    </div>
+                    <div class="legend-item mb-3">
+                        <i class="fas fa-map-marker-alt text-primary fa-2x"></i>
+                        <div>
+                            <strong>Bleu</strong>
+                            <p class="mb-0 small text-muted">1 crédit actif</p>
+                        </div>
+                    </div>
+                    <div class="legend-item">
+                        <i class="fas fa-map-marker-alt text-warning fa-2x"></i>
+                        <div>
+                            <strong>Orange</strong>
+                            <p class="mb-0 small text-muted">Plusieurs crédits actifs</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-dark text-white">
+                    <h6 class="mb-0"><i class="fas fa-filter me-2"></i>Filtres</h6>
+                </div>
+                <div class="card-body">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="filter-green" checked>
+                        <label class="form-check-label" for="filter-green">
+                            Sans crédit
+                        </label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="filter-blue" checked>
+                        <label class="form-check-label" for="filter-blue">
+                            1 crédit actif
+                        </label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="filter-orange" checked>
+                        <label class="form-check-label" for="filter-orange">
+                            Plusieurs crédits
+                        </label>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary w-100" onclick="applyFilters()">
+                        <i class="fas fa-sync me-2"></i>Actualiser
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-box {
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.stat-box h3 {
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.stat-box p {
+    font-size: 0.85rem;
+    margin: 0;
+    opacity: 0.9;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.legend-item i {
+    width: 40px;
+}
+
+.card {
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.leaflet-popup-content {
+    margin: 15px;
+    min-width: 250px;
+}
+
+.client-popup h6 {
+    color: #1f2937;
+    font-weight: 700;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.client-popup .info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.client-popup .info-label {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.client-popup .info-value {
+    color: #1f2937;
+    font-weight: 600;
+}
+
+.client-popup .btn {
+    margin-top: 10px;
+    width: 100%;
+}
+</style>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+const clientsData = {{ clients_data|tojson }};
+
+let map;
+let markers = [];
+let markerClusterGroup;
+
+function initMap() {
+    map = L.map('map').setView([5.3600, -4.0083], 11);
+    
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18
+    }).addTo(map);
+    
+    markerClusterGroup = L.markerClusterGroup({
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true
+    });
+    
+    updateStats();
+    addMarkers();
+    map.addLayer(markerClusterGroup);
+}
+
+function getMarkerIcon(color) {
+    const colors = {
+        'green': '#10b981',
+        'blue': '#3b82f6',
+        'orange': '#f59e0b'
+    };
+    
+    return L.divIcon({
+        className: 'custom-marker',
+        html: `<i class="fas fa-map-marker-alt" style="color: ${colors[color]}; font-size: 2.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);"></i>`,
+        iconSize: [30, 42],
+        iconAnchor: [15, 42],
+        popupAnchor: [0, -42]
+    });
+}
+
+function addMarkers() {
+    markerClusterGroup.clearLayers();
+    markers = [];
+    
+    clientsData.forEach(client => {
+        const popupContent = `
+            <div class="client-popup">
+                <h6><i class="fas fa-user-circle me-2"></i>${client.name}</h6>
+                <div class="info-row">
+                    <span class="info-label">ID Client:</span>
+                    <span class="info-value">${client.client_id}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Téléphone:</span>
+                    <span class="info-value">${client.phone}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Email:</span>
+                    <span class="info-value">${client.email}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Adresse:</span>
+                    <span class="info-value">${client.address}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Crédits Actifs:</span>
+                    <span class="info-value badge bg-${client.color === 'green' ? 'success' : client.color === 'blue' ? 'primary' : 'warning'}">${client.active_credits}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Montant Total:</span>
+                    <span class="info-value text-success">${new Intl.NumberFormat('fr-FR').format(client.total_amount)} FCFA</span>
+                </div>
+                <a href="/clients/${client.id}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-eye me-2"></i>Voir Profil
+                </a>
+            </div>
+        `;
+        
+        const marker = L.marker([client.lat, client.lng], {
+            icon: getMarkerIcon(client.color)
+        }).bindPopup(popupContent);
+        
+        marker.clientData = client;
+        markers.push(marker);
+        markerClusterGroup.addLayer(marker);
+    });
+}
+
+function updateStats() {
+    const noCredit = clientsData.filter(c => c.active_credits === 0).length;
+    const hasCredit = clientsData.filter(c => c.active_credits > 0).length;
+    const totalPortfolio = clientsData.reduce((sum, c) => sum + c.total_amount, 0);
+    
+    document.getElementById('no-credit-clients').textContent = noCredit;
+    document.getElementById('active-clients').textContent = hasCredit;
+    document.getElementById('total-portfolio').textContent = new Intl.NumberFormat('fr-FR').format(totalPortfolio) + ' FCFA';
+}
+
+function applyFilters() {
+    const showGreen = document.getElementById('filter-green').checked;
+    const showBlue = document.getElementById('filter-blue').checked;
+    const showOrange = document.getElementById('filter-orange').checked;
+    
+    markerClusterGroup.clearLayers();
+    
+    markers.forEach(marker => {
+        const color = marker.clientData.color;
+        if ((color === 'green' && showGreen) || 
+            (color === 'blue' && showBlue) || 
+            (color === 'orange' && showOrange)) {
+            markerClusterGroup.addLayer(marker);
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initMap();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Avancés{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="page-title">
+                <i class="fas fa-chart-pie me-2"></i>Analytics Avancés & Prédictions
+            </h1>
+            <p class="text-muted">Analyses détaillées et insights stratégiques</p>
+        </div>
+    </div>
+
+    <!-- KPIs Principaux -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-3 col-md-6">
+            <div class="analytics-kpi bg-gradient-blue">
+                <div class="kpi-icon"><i class="fas fa-money-bill-wave"></i></div>
+                <div class="kpi-content">
+                    <h3>{{ total_disbursed|currency }}</h3>
+                    <p>Total Décaissé</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="analytics-kpi bg-gradient-green">
+                <div class="kpi-icon"><i class="fas fa-hand-holding-usd"></i></div>
+                <div class="kpi-content">
+                    <h3>{{ total_recovered|currency }}</h3>
+                    <p>Total Récupéré</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="analytics-kpi bg-gradient-orange">
+                <div class="kpi-icon"><i class="fas fa-balance-scale"></i></div>
+                <div class="kpi-content">
+                    <h3>{{ total_outstanding|currency }}</h3>
+                    <p>Solde Restant</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+            <div class="analytics-kpi bg-gradient-purple">
+                <div class="kpi-icon"><i class="fas fa-percentage"></i></div>
+                <div class="kpi-content">
+                    <h3>{{ "%.1f"|format(recovery_rate) }}%</h3>
+                    <p>Taux de Récupération</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphiques de Tendances et Prédictions -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Analyse sur 12 Mois & Projection</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="yearlyTrendChart" height="80"></canvas>
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <strong><i class="fas fa-brain text-primary me-2"></i>Prédiction IA:</strong>
+                        <span class="text-success">Prochaine projection estimée: {{ projected_next_month|currency }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Qualité du Portefeuille</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="portfolioQualityChart"></canvas>
+                    <div class="mt-3">
+                        <div class="quality-legend">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span><i class="fas fa-circle text-success"></i> Excellent (80+)</span>
+                                <strong>{{ portfolio_quality.excellent }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span><i class="fas fa-circle text-info"></i> Bon (60-79)</span>
+                                <strong>{{ portfolio_quality.good }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span><i class="fas fa-circle text-warning"></i> Moyen (40-59)</span>
+                                <strong>{{ portfolio_quality.medium }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span><i class="fas fa-circle text-danger"></i> Faible (<40)</span>
+                                <strong>{{ portfolio_quality.poor }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistiques des Clients et Performance Produits -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Répartition des Clients</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="clientStatusChart" height="120"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Alertes & Risques</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert-box alert-danger-light mb-3">
+                        <h3 class="mb-0">{{ overdue_credits }}</h3>
+                        <p class="mb-0">Crédits en Retard</p>
+                    </div>
+                    <div class="alert-box alert-warning-light">
+                        <h3 class="mb-0">{{ total_penalties|currency }}</h3>
+                        <p class="mb-0">Total Pénalités</p>
+                    </div>
+                    {% if overdue_credits > 0 %}
+                    <div class="mt-3 p-3 bg-danger-subtle rounded">
+                        <i class="fas fa-exclamation-circle text-danger me-2"></i>
+                        <strong>Action requise!</strong> {{ overdue_credits }} crédit(s) nécessitent une attention immédiate.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Clients et Performance Produits -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-7">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-trophy me-2"></i>Top 10 Clients VIP</h5>
+                    <span class="badge bg-warning text-dark">Meilleurs contributeurs</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Client</th>
+                                    <th>Nb Crédits</th>
+                                    <th>Montant Total</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for client, credit_count, total_amount in top_clients %}
+                                <tr>
+                                    <td><span class="badge bg-primary">{{ loop.index }}</span></td>
+                                    <td>
+                                        <strong>{{ client.full_name }}</strong><br>
+                                        <small class="text-muted">{{ client.client_id }}</small>
+                                    </td>
+                                    <td><span class="badge bg-info">{{ credit_count }}</span></td>
+                                    <td><strong class="text-success">{{ total_amount|currency }}</strong></td>
+                                    <td>
+                                        <a href="{{ url_for('client_detail', id=client.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-purple text-white">
+                    <h5 class="mb-0"><i class="fas fa-box me-2"></i>Performance par Produit</h5>
+                </div>
+                <div class="card-body">
+                    {% if products_performance %}
+                    <div class="products-list">
+                        {% for product in products_performance %}
+                        <div class="product-item mb-3 p-3 bg-light rounded">
+                            <h6 class="mb-2"><i class="fas fa-tag text-primary me-2"></i>{{ product.name }}</h6>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <small class="text-muted">Crédits</small>
+                                    <div><strong>{{ product.count }}</strong></div>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted">Montant</small>
+                                    <div><strong>{{ product.total_amount|currency }}</strong></div>
+                                </div>
+                                <div class="col-4">
+                                    <small class="text-muted">Score Moy.</small>
+                                    <div><strong>{{ "%.0f"|format(product.avg_score if product.avg_score else 0) }}</strong></div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">Aucune donnée de performance disponible</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.analytics-kpi {
+    border-radius: 15px;
+    padding: 25px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+}
+
+.analytics-kpi:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+}
+
+.bg-gradient-blue {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.bg-gradient-green {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.bg-gradient-orange {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.bg-gradient-purple {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.kpi-icon {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 4rem;
+    opacity: 0.2;
+}
+
+.kpi-content h3 {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+}
+
+.kpi-content p {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+.bg-purple {
+    background-color: #8b5cf6 !important;
+}
+
+.alert-box {
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.alert-danger-light {
+    background: #fee2e2;
+    border: 2px solid #ef4444;
+}
+
+.alert-warning-light {
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+}
+
+.alert-box h3 {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #1f2937;
+}
+
+.alert-box p {
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.quality-legend {
+    font-size: 0.85rem;
+}
+
+.product-item {
+    transition: all 0.3s ease;
+    border-left: 4px solid #667eea;
+}
+
+.product-item:hover {
+    background-color: #e0e7ff !important;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.bg-danger-subtle {
+    background-color: #fee2e2 !important;
+}
+
+.card {
+    border-radius: 15px;
+}
+
+.card-header {
+    border-radius: 15px 15px 0 0 !important;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartColors = {
+        primary: '#667eea',
+        success: '#10b981',
+        danger: '#ef4444',
+        warning: '#f59e0b',
+        info: '#3b82f6',
+        purple: '#8b5cf6'
+    };
+
+    // Graphique annuel avec projection
+    const yearlyCtx = document.getElementById('yearlyTrendChart');
+    if (yearlyCtx && typeof Chart !== 'undefined') {
+        const monthLabels = {{ month_labels|tojson }};
+        const creditsData = {{ credits_by_month|tojson }};
+        const paymentsData = {{ payments_by_month|tojson }};
+        
+        new Chart(yearlyCtx, {
+            type: 'line',
+            data: {
+                labels: monthLabels,
+                datasets: [
+                    {
+                        label: 'Crédits Décaissés',
+                        data: creditsData,
+                        borderColor: chartColors.primary,
+                        backgroundColor: chartColors.primary + '20',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        borderWidth: 3
+                    },
+                    {
+                        label: 'Remboursements',
+                        data: paymentsData,
+                        borderColor: chartColors.success,
+                        backgroundColor: chartColors.success + '20',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        borderWidth: 3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20,
+                            font: {
+                                size: 13,
+                                weight: '600'
+                            }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        padding: 15,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + new Intl.NumberFormat('fr-FR').format(context.parsed.y) + ' FCFA';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return new Intl.NumberFormat('fr-FR', { notation: 'compact' }).format(value);
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0,0,0,0.05)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Graphique qualité du portefeuille
+    const portfolioCtx = document.getElementById('portfolioQualityChart');
+    if (portfolioCtx && typeof Chart !== 'undefined') {
+        new Chart(portfolioCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Excellent', 'Bon', 'Moyen', 'Faible'],
+                datasets: [{
+                    data: [{{ portfolio_quality.excellent }}, {{ portfolio_quality.good }}, {{ portfolio_quality.medium }}, {{ portfolio_quality.poor }}],
+                    backgroundColor: [
+                        chartColors.success,
+                        chartColors.info,
+                        chartColors.warning,
+                        chartColors.danger
+                    ],
+                    borderWidth: 4,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '65%',
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Graphique statut clients
+    const clientCtx = document.getElementById('clientStatusChart');
+    if (clientCtx && typeof Chart !== 'undefined') {
+        new Chart(clientCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Clients Actifs', 'Clients Complétés', 'Sans Crédit'],
+                datasets: [{
+                    label: 'Nombre de Clients',
+                    data: [{{ clients_by_status.active }}, {{ clients_by_status.completed }}, {{ clients_by_status.no_credit }}],
+                    backgroundColor: [
+                        chartColors.success,
+                        chartColors.info,
+                        '#6b7280'
+                    ],
+                    borderRadius: 10,
+                    barThickness: 50
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        padding: 12
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

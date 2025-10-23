@@ -15,3 +15,9 @@
 [x] 15. Added CreditDocument model for document management
 [x] 16. Created detailed credit history page for each client with score and performance metrics
 [x] 17. Renamed main.py to app.py and updated workflow configuration
+[x] 18. NIVEAU 1 - Dashboard Analytics avec graphiques Chart.js avancés (tendances, donut, barres)
+[x] 19. NIVEAU 1 - Page Analytics dédiée avec prédictions, top clients, qualité portefeuille
+[x] 20. NIVEAU 1 - Carte interactive Leaflet.js avec clustering et popups clients
+[x] 21. NIVEAU 1 - Progressive Web App (PWA) complète avec manifest + service worker
+[x] 22. NIVEAU 1 - Optimisations responsive mobile et tablette avec media queries
+[x] 23. Corrections PWA - Icônes SVG réelles pour installabilité mobile
