@@ -20,7 +20,7 @@
                 <label for="{{ form.username.id }}" class="form-label">
                     <i class="fas fa-user me-2"></i>{{ form.username.label.text }}
                 </label>
-                {{ form.username(class="form-control form-control-lg", placeholder="Entrez votre nom d'utilisateur") }}
+                {{ form.username(class="form-control form-control-lg", placeholder="Entrez votre nom d'utilisateur", autocomplete="username") }}
                 {% if form.username.errors %}
                     <div class="text-danger mt-1">
                         {% for error in form.username.errors %}
@@ -34,7 +34,7 @@
                 <label for="{{ form.password.id }}" class="form-label">
                     <i class="fas fa-lock me-2"></i>{{ form.password.label.text }}
                 </label>
-                {{ form.password(class="form-control form-control-lg", placeholder="Entrez votre mot de passe") }}
+                {{ form.password(class="form-control form-control-lg", placeholder="Entrez votre mot de passe", autocomplete="current-password") }}
                 {% if form.password.errors %}
                     <div class="text-danger mt-1">
                         {% for error in form.password.errors %}

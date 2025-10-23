@@ -3,3 +3,4 @@
 [x] 3. Verify the project is working using the feedback tool
 [x] 4. Inform user the import is completed and they can start building
 [x] 5. Implementation of all missing functionalities from specifications completed
+[x] 6. Fixed browser console warnings (autocomplete attributes and favicon 404 error)
