@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from dotenv import load_dotenv
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Client, Product, Credit, CreditPayment, SavingsAccount, SavingsTransaction, PaymentSchedule, AuditLog, ClientInteraction
@@ -8,6 +9,8 @@ from sqlalchemy import func
 import random
 import string
 from dateutil.relativedelta import relativedelta
+
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET") or "dev-secret-key-change-in-production"
