@@ -1,4 +1,6 @@
+from markupsafe import Markup
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, EmailField, SelectField, FloatField, IntegerField, TextAreaField, DateField, BooleanField
 from wtforms.validators import DataRequired, Email, Length, Optional, NumberRange
 
@@ -14,6 +16,8 @@ class ClientForm(FlaskForm):
     address = TextAreaField('Adresse', validators=[Optional()])
     date_of_birth = DateField('Date de naissance', validators=[Optional()], format='%Y-%m-%d')
     id_number = StringField('Numéro d\'identité', validators=[Optional(), Length(max=50)])
+    photo = FileField('Photo du client', validators=[Optional(), FileAllowed(['jpg', 'jpeg', 'png'], 'Images seulement!')])
+    id_card = FileField('Carte d\'identité', validators=[Optional(), FileAllowed(['jpg', 'jpeg', 'png', 'pdf'], 'Images ou PDF seulement!')])
 
 class ProductForm(FlaskForm):
     name = StringField('Nom du produit', validators=[DataRequired(), Length(max=100)])
@@ -47,6 +51,14 @@ class SavingsAccountForm(FlaskForm):
 class SavingsTransactionForm(FlaskForm):
     transaction_type = SelectField('Type de transaction', choices=[('deposit', 'Dépôt'), ('withdrawal', 'Retrait')], validators=[DataRequired()])
     amount = FloatField('Montant', validators=[DataRequired(), NumberRange(min=0.01)])
+    payment_method = SelectField('Méthode de paiement', choices=[
+        ('cash', 'Espèces'),
+        ('wave', 'Wave'),
+        ('orange_money', 'Orange Money'),
+        ('bank_transfer', 'Virement bancaire'),
+        ('check', 'Chèque'),
+        ('other', 'Autre')
+    ], validators=[DataRequired()])
     reference = StringField('Référence', validators=[Optional(), Length(max=100)])
     notes = TextAreaField('Notes', validators=[Optional()])
 
@@ -104,3 +116,4 @@ class UserForm(FlaskForm):
         ('gestionnaire', 'Gestionnaire'),
         ('agent', 'Agent')
     ], validators=[DataRequired()])
+

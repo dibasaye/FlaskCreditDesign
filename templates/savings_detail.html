@@ -54,23 +54,63 @@
                     <form method="POST" action="{{ url_for('add_savings_transaction', id=account.id) }}">
                         {{ transaction_form.hidden_tag() }}
                         <div class="row">
-                            <div class="col-md-3 mb-3">
+                            <div class="col-md-2 mb-3" style="min-height: 4rem;">
                                 {{ transaction_form.transaction_type.label(class="form-label") }}
                                 {{ transaction_form.transaction_type(class="form-control") }}
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-md-2 mb-3" style="min-height: 4rem;">
                                 {{ transaction_form.amount.label(class="form-label") }}
                                 {{ transaction_form.amount(class="form-control") }}
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-md-3 mb-3" style="min-height: 4rem;">
+                                {{ transaction_form.payment_method.label(class="form-label") }}
+                                <div class="input-group">
+                                    {{ transaction_form.payment_method(class="form-control") }}
+                                    <span class="input-group-text" id="payment-method-icon">
+                                        <img id="payment-icon" src="{{ url_for('static', filename='images/cash-icon.svg') }}" alt="Payment method" width="20" height="20">
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3" style="min-height: 4rem;">
                                 {{ transaction_form.reference.label(class="form-label") }}
                                 {{ transaction_form.reference(class="form-control") }}
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-md-2 mb-3" style="min-height: 4rem;">
                                 <label class="form-label">&nbsp;</label>
                                 <button type="submit" class="btn btn-primary w-100">
                                     <i class="fas fa-plus me-2"></i>Ajouter
                                 </button>
+                            </div>
+                        </div>
+                         <script>
+                             document.addEventListener('DOMContentLoaded', function() {
+                                 const paymentMethodSelect = document.querySelector('select[name="payment_method"]');
+                                 const paymentIcon = document.getElementById('payment-icon');
+
+                                 const iconMap = {
+                                     'cash': '{{ url_for("static", filename="images/cash-icon.svg") }}',
+                                     'wave': '{{ url_for("static", filename="images/wave-logo.svg") }}',
+                                     'orange_money': '{{ url_for("static", filename="images/orange-money-logo.svg") }}',
+                                     'bank_transfer': '{{ url_for("static", filename="images/bank-icon.svg") }}',
+                                     'check': '{{ url_for("static", filename="images/check-icon.svg") }}',
+                                     'other': '{{ url_for("static", filename="images/cash-icon.svg") }}'
+                                 };
+
+                                 function updateIcon() {
+                                     const selectedValue = paymentMethodSelect.value;
+                                     if (iconMap[selectedValue]) {
+                                         paymentIcon.src = iconMap[selectedValue];
+                                     }
+                                 }
+
+                                 paymentMethodSelect.addEventListener('change', updateIcon);
+                                 updateIcon(); // Set initial icon
+                             });
+                         </script>
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                {{ transaction_form.notes.label(class="form-label") }}
+                                {{ transaction_form.notes(class="form-control") }}
                             </div>
                         </div>
                     </form>
@@ -90,6 +130,7 @@
                                 <tr>
                                     <th>Date</th>
                                     <th>Type</th>
+                                    <th>Méthode</th>
                                     <th>Montant</th>
                                     <th>Solde après</th>
                                     <th>Référence</th>
@@ -105,6 +146,21 @@
                                             <span class="badge bg-success">Dépôt</span>
                                         {% else %}
                                             <span class="badge bg-danger">Retrait</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if transaction.payment_method == 'wave' %}
+                                            <img src="{{ url_for('static', filename='images/wave-logo.svg') }}" alt="Wave" style="width: 30px; height: 30px; border-radius: 50%;">
+                                        {% elif transaction.payment_method == 'orange_money' %}
+                                            <img src="{{ url_for('static', filename='images/orange-money-logo.svg') }}" alt="Orange Money" style="width: 30px; height: 30px; border-radius: 50%;">
+                                        {% elif transaction.payment_method == 'cash' %}
+                                            <img src="{{ url_for('static', filename='images/cash-icon.svg') }}" alt="Cash" style="width: 30px; height: 30px; border-radius: 50%;">
+                                        {% elif transaction.payment_method == 'bank_transfer' %}
+                                            <img src="{{ url_for('static', filename='images/bank-icon.svg') }}" alt="Bank Transfer" style="width: 30px; height: 30px; border-radius: 50%;">
+                                        {% elif transaction.payment_method == 'check' %}
+                                            <img src="{{ url_for('static', filename='images/check-icon.svg') }}" alt="Check" style="width: 30px; height: 30px; border-radius: 50%;">
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">{{ transaction.payment_method or 'N/A' }}</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -131,3 +187,4 @@
     </div>
 </div>
 {% endblock %}
+

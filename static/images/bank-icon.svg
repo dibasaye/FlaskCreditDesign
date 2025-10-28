@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="bankGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#007bff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0056b3;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="50" r="45" fill="url(#bankGradient)" stroke="#fff" stroke-width="2"/>
+  <!-- Bank building -->
+  <rect x="25" y="35" width="50" height="25" fill="white" stroke="url(#bankGradient)" stroke-width="1"/>
+  <rect x="30" y="40" width="8" height="15" fill="url(#bankGradient)"/>
+  <rect x="42" y="40" width="8" height="15" fill="url(#bankGradient)"/>
+  <rect x="54" y="40" width="8" height="15" fill="url(#bankGradient)"/>
+  <rect x="35" y="30" width="30" height="8" fill="url(#bankGradient)"/>
+  <text x="50" y="75" font-family="Arial, sans-serif" font-size="10" text-anchor="middle" fill="white">BANK</text>
+</svg>

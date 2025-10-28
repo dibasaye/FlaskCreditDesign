@@ -7,7 +7,11 @@
     <div class="row mb-4">
         <div class="col-md-6">
             <h1 class="page-title">
-                <i class="fas fa-user me-2"></i>{{ client.full_name }}
+                {% if client.photo_path %}
+                <img src="{{ url_for('static', filename=client.photo_path) }}" alt="Photo" class="rounded-circle me-3" style="width: 60px; height: 60px; object-fit: cover;" onerror="this.style.display='none';">
+                {% endif %}
+                <i class="fas fa-user me-2" {% if client.photo_path %}style="display: none;"{% endif %}></i>
+                {{ client.full_name }}
             </h1>
             <p class="text-muted">ID: {{ client.client_id }}</p>
         </div>
@@ -36,6 +40,46 @@
                     <p><strong>Inscrit le:</strong> {{ client.created_at.strftime('%d/%m/%Y') }}</p>
                 </div>
             </div>
+
+            <!-- Photo du client -->
+            {% if client.photo_path %}
+            <div class="card shadow-sm mt-3">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-camera me-2"></i>Photo du Client</h6>
+                </div>
+                <div class="card-body text-center">
+                    <img src="{{ url_for('static', filename=client.photo_path) }}" alt="Photo du client" class="img-fluid rounded" style="max-height: 200px;">
+                    <br><br>
+                    <a href="{{ url_for('static', filename=client.photo_path) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-external-link-alt me-1"></i>Voir en grand
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Carte d'identité -->
+            {% if client.id_card_path %}
+            <div class="card shadow-sm mt-3">
+                <div class="card-header bg-warning text-white">
+                    <h6 class="mb-0"><i class="fas fa-id-card me-2"></i>Carte d'Identité</h6>
+                </div>
+                <div class="card-body text-center">
+                    {% if client.id_card_path.endswith(('.jpg', '.jpeg', '.png')) %}
+                        <img src="{{ url_for('static', filename=client.id_card_path) }}" alt="Carte d'identité" class="img-fluid rounded" style="max-height: 200px;">
+                        <br><br>
+                        <a href="{{ url_for('static', filename=client.id_card_path) }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-external-link-alt me-1"></i>Voir en grand
+                        </a>
+                    {% else %}
+                        <i class="fas fa-file-pdf fa-3x text-danger"></i>
+                        <p class="mt-2">Document PDF</p>
+                        <a href="{{ url_for('static', filename=client.id_card_path) }}" target="_blank" class="btn btn-sm btn-outline-danger">
+                            <i class="fas fa-download me-1"></i>Télécharger PDF
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
         
         <div class="col-lg-8">

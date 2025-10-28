@@ -9,16 +9,24 @@ from sqlalchemy import func
 import random
 import string
 from dateutil.relativedelta import relativedelta
+from werkzeug.utils import secure_filename
+import uuid
 
 load_dotenv()
 
+# Configuration de l'application
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET") or "dev-secret-key-change-in-production"
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
-}
+app.config['SECRET_KEY'] = os.environ.get('SESSION_SECRET', 'dev-key-change-in-production')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'mysql+pymysql://root:@localhost/financier_db')
+app.config['UPLOAD_FOLDER'] = os.path.join('static', 'uploads')
+app.config['CLIENT_PHOTOS_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'client_photos')
+app.config['CLIENT_ID_CARDS_FOLDER'] = os.path.join(app.config['UPLOAD_FOLDER'], 'client_id_cards')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['CLIENT_PHOTOS_FOLDER'], exist_ok=True)
+os.makedirs(app.config['CLIENT_ID_CARDS_FOLDER'], exist_ok=True)
 
 db.init_app(app)
 
@@ -49,12 +57,23 @@ def log_audit(action, entity_type=None, entity_id=None, details=None):
     )
     db.session.add(log)
 
+def save_uploaded_file(file, folder):
+    """Save uploaded file with secure filename and return relative path"""
+    if file and file.filename:
+        filename = secure_filename(file.filename)
+        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        file_path = os.path.join(folder, unique_filename)
+        file.save(file_path)
+        # Return path with forward slashes for web compatibility
+        return f"uploads/{os.path.basename(folder)}/{unique_filename}"
+    return None
+
 def generate_payment_schedule(credit):
     if not credit.disbursement_date:
         return
-    
+
     PaymentSchedule.query.filter_by(credit_id=credit.id).delete()
-    
+
     start_date = credit.disbursement_date
     for i in range(1, credit.duration_months + 1):
         due_date = start_date + relativedelta(months=i)
@@ -210,16 +229,16 @@ def generate_payment_alerts():
 with app.app_context():
     db.create_all()
     
-    admin_username = os.environ.get("ADMIN_USERNAME")
-    admin_password = os.environ.get("ADMIN_PASSWORD")
+    admin_username = os.environ.get("ADMIN_USERNAME", "admin")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "admin123")
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@example.com")
-    
-    if admin_username and admin_password and not User.query.filter_by(username=admin_username).first():
+
+    if not User.query.filter_by(username=admin_username).first():
         admin = User(username=admin_username, email=admin_email, role='administrateur')
         admin.set_password(admin_password)
         db.session.add(admin)
         db.session.commit()
-        print(f"Utilisateur administrateur '{admin_username}' créé avec succès")
+        print(f"Utilisateur administrateur '{admin_username}' créé avec succès (mot de passe: {admin_password})")
     
     default_users = [
         {'username': 'gestionnaire1', 'email': 'gestionnaire1@finance.com', 'password': 'Manager@123', 'role': 'gestionnaire'},
@@ -257,7 +276,8 @@ def index():
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-    
+
+    system_settings = SystemSettings.query.first()
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
@@ -268,7 +288,7 @@ def login():
             return redirect(next_page) if next_page else redirect(url_for('dashboard'))
         else:
             flash('Nom d\'utilisateur ou mot de passe incorrect', 'danger')
-    return render_template('login.html', form=form)
+    return render_template('login.html', form=form, system_settings=system_settings)
 
 @app.route('/logout')
 @login_required
@@ -281,6 +301,8 @@ def logout():
 @login_required
 def dashboard():
     generate_payment_alerts()
+
+    system_settings = SystemSettings.query.first()
     
     from datetime import datetime, timedelta
     from sqlalchemy import extract
@@ -329,18 +351,18 @@ def dashboard():
         year = month_date.year
         
         credits_count = Credit.query.filter(
-            extract('month', Credit.application_date) == month_num,
-            extract('year', Credit.application_date) == year
+            func.extract('month', Credit.application_date) == month_num,
+            func.extract('year', Credit.application_date) == year
         ).count()
-        
+
         credits_amount = db.session.query(func.sum(Credit.amount)).filter(
-            extract('month', Credit.application_date) == month_num,
-            extract('year', Credit.application_date) == year
+            func.extract('month', Credit.application_date) == month_num,
+            func.extract('year', Credit.application_date) == year
         ).scalar() or 0
-        
+
         payments_amount = db.session.query(func.sum(CreditPayment.amount)).join(Credit).filter(
-            extract('month', CreditPayment.payment_date) == month_num,
-            extract('year', CreditPayment.payment_date) == year
+            func.extract('month', CreditPayment.payment_date) == month_num,
+            func.extract('year', CreditPayment.payment_date) == year
         ).scalar() or 0
         
         monthly_labels.append(month_name[:3])
@@ -362,32 +384,33 @@ def dashboard():
     ).count()
     
     return render_template('dashboard.html',
-                         total_clients=total_clients,
-                         total_credits=total_credits,
-                         active_credits=active_credits,
-                         total_savings=total_savings,
-                         total_credit_amount=total_credit_amount,
-                         total_credit_paid=total_credit_paid,
-                         total_savings_balance=total_savings_balance,
-                         recent_credits=recent_credits,
-                         recent_clients=recent_clients,
-                         pending_credits=pending_credits,
-                         approved_credits=approved_credits,
-                         completed_credits=completed_credits,
-                         rejected_credits=rejected_credits,
-                         credit_products=credit_products,
-                         savings_products=savings_products,
-                         upcoming_due=upcoming_due,
-                         overdue=overdue,
-                         new_clients_month=new_clients_month,
-                         new_credits_month=new_credits_month,
-                         monthly_labels=monthly_labels,
-                         monthly_data=monthly_data,
-                         total_payments=total_payments,
-                         avg_credit_amount=avg_credit_amount,
-                         avg_savings_balance=avg_savings_balance,
-                         repayment_rate=repayment_rate,
-                         risk_clients=risk_clients)
+                          total_clients=total_clients,
+                          total_credits=total_credits,
+                          active_credits=active_credits,
+                          total_savings=total_savings,
+                          total_credit_amount=total_credit_amount,
+                          total_credit_paid=total_credit_paid,
+                          total_savings_balance=total_savings_balance,
+                          recent_credits=recent_credits,
+                          recent_clients=recent_clients,
+                          pending_credits=pending_credits,
+                          approved_credits=approved_credits,
+                          completed_credits=completed_credits,
+                          rejected_credits=rejected_credits,
+                          credit_products=credit_products,
+                          savings_products=savings_products,
+                          upcoming_due=upcoming_due,
+                          overdue=overdue,
+                          new_clients_month=new_clients_month,
+                          new_credits_month=new_credits_month,
+                          monthly_labels=monthly_labels,
+                          monthly_data=monthly_data,
+                          total_payments=total_payments,
+                          avg_credit_amount=avg_credit_amount,
+                          avg_savings_balance=avg_savings_balance,
+                          repayment_rate=repayment_rate,
+                          risk_clients=risk_clients,
+                          system_settings=system_settings)
 
 @app.route('/clients')
 @login_required
@@ -417,6 +440,10 @@ def clients():
 def new_client():
     form = ClientForm()
     if form.validate_on_submit():
+        # Handle file uploads
+        photo_path = save_uploaded_file(form.photo.data, app.config['CLIENT_PHOTOS_FOLDER'])
+        id_card_path = save_uploaded_file(form.id_card.data, app.config['CLIENT_ID_CARDS_FOLDER'])
+
         client = Client(
             client_id=generate_unique_id('CLT', Client, 'client_id'),
             first_name=form.first_name.data,
@@ -425,9 +452,12 @@ def new_client():
             phone=form.phone.data,
             address=form.address.data,
             date_of_birth=form.date_of_birth.data,
-            id_number=form.id_number.data
+            id_number=form.id_number.data,
+            photo_path=photo_path,
+            id_card_path=id_card_path
         )
         db.session.add(client)
+        log_audit('Client créé', 'Client', None, f'Client {client.full_name} créé')
         db.session.commit()
         flash(f'Client {client.full_name} créé avec succès!', 'success')
         return redirect(url_for('clients'))
@@ -439,8 +469,24 @@ def edit_client(id):
     client = Client.query.get_or_404(id)
     form = ClientForm(obj=client)
     if form.validate_on_submit():
+        # Handle file uploads - only update if new files are provided
+        if form.photo.data:
+            photo_path = save_uploaded_file(form.photo.data, app.config['CLIENT_PHOTOS_FOLDER'])
+            if photo_path:
+                client.photo_path = photo_path
+
+        if form.id_card.data:
+            id_card_path = save_uploaded_file(form.id_card.data, app.config['CLIENT_ID_CARDS_FOLDER'])
+            if id_card_path:
+                client.id_card_path = id_card_path
+
+        # Debug: print paths (remove in production)
+        # print(f"Photo path: {client.photo_path}")
+        # print(f"ID card path: {client.id_card_path}")
+
         form.populate_obj(client)
         client.updated_at = datetime.utcnow()
+        log_audit('Client modifié', 'Client', client.id, f'Client {client.full_name} modifié')
         db.session.commit()
         flash(f'Client {client.full_name} mis à jour avec succès!', 'success')
         return redirect(url_for('client_detail', id=id))
@@ -723,7 +769,8 @@ def new_savings():
             balance=form.initial_deposit.data or 0
         )
         db.session.add(account)
-        
+        db.session.commit()  # Commit account first to get the ID
+
         if form.initial_deposit.data and form.initial_deposit.data > 0:
             transaction = SavingsTransaction(
                 account_id=account.id,
@@ -733,8 +780,7 @@ def new_savings():
                 notes='Dépôt initial'
             )
             db.session.add(transaction)
-        
-        db.session.commit()
+            db.session.commit()
         flash(f'Compte d\'épargne {account.account_number} créé avec succès!', 'success')
         return redirect(url_for('savings'))
     
@@ -786,32 +832,52 @@ def apply_interest(id):
 def add_savings_transaction(id):
     account = SavingsAccount.query.get_or_404(id)
     form = SavingsTransactionForm()
-    
+
     if form.validate_on_submit():
         amount = form.amount.data
         transaction_type = form.transaction_type.data
-        
+        payment_method = form.payment_method.data
+
+        # Simulate transaction processing based on payment method
+        if payment_method in ['wave', 'orange_money']:
+            # Simulate mobile money transaction
+            import time
+            flash(f'Traitement de la transaction {payment_method.upper()} en cours...', 'info')
+            time.sleep(2)  # Simulate processing delay
+            # In real implementation, this would integrate with actual APIs
+
         if transaction_type == 'withdrawal' and amount > account.balance:
             flash('Solde insuffisant pour ce retrait', 'danger')
             return redirect(url_for('savings_detail', id=id))
-        
+
         if transaction_type == 'deposit':
             account.balance += amount
         else:
             account.balance -= amount
-        
+
         transaction = SavingsTransaction(
             account_id=id,
             transaction_type=transaction_type,
             amount=amount,
             balance_after=account.balance,
+            payment_method=payment_method,
             reference=form.reference.data,
             notes=form.notes.data
         )
         db.session.add(transaction)
         db.session.commit()
-        flash(f'Transaction de {amount} enregistrée avec succès!', 'success')
-    
+
+        # Success message with payment method icon
+        method_display = {
+            'cash': '💵 Espèces',
+            'wave': '🌊 Wave',
+            'orange_money': '📱 Orange Money',
+            'bank_transfer': '🏦 Virement bancaire',
+            'check': '📋 Chèque',
+            'other': '🔄 Autre'
+        }
+        flash(f'Transaction de {amount} FCFA enregistrée avec succès via {method_display.get(payment_method, payment_method)}!', 'success')
+
     return redirect(url_for('savings_detail', id=id))
 
 @app.route('/analytics')
@@ -850,13 +916,13 @@ def analytics():
         year = month_date.year
         
         month_credits = db.session.query(func.sum(Credit.amount)).filter(
-            extract('month', Credit.application_date) == month_num,
-            extract('year', Credit.application_date) == year
+            func.extract('month', Credit.application_date) == month_num,
+            func.extract('year', Credit.application_date) == year
         ).scalar() or 0
-        
+
         month_payments = db.session.query(func.sum(CreditPayment.amount)).join(Credit).filter(
-            extract('month', CreditPayment.payment_date) == month_num,
-            extract('year', CreditPayment.payment_date) == year
+            func.extract('month', CreditPayment.payment_date) == month_num,
+            func.extract('year', CreditPayment.payment_date) == year
         ).scalar() or 0
         
         month_labels.append(month_name)
@@ -987,12 +1053,12 @@ def reports():
     recent_audits = AuditLog.query.order_by(AuditLog.timestamp.desc()).limit(20).all()
     
     monthly_stats = db.session.query(
-        func.date_trunc('month', Credit.application_date).label('month'),
+        func.date_format(Credit.application_date, '%Y-%m-01').label('month'),
         func.count(Credit.id).label('count'),
         func.sum(Credit.amount).label('total')
     ).filter(
         Credit.application_date >= datetime.utcnow() - relativedelta(months=12)
-    ).group_by('month').order_by('month').all()
+    ).group_by(func.date_format(Credit.application_date, '%Y-%m-01')).order_by(func.date_format(Credit.application_date, '%Y-%m-01')).all()
     
     return render_template('reports.html',
                          total_clients=total_clients,
@@ -1014,13 +1080,13 @@ def reports():
 def settings():
     profile_form = ProfileForm(obj=current_user)
     password_form = ChangePasswordForm()
-    
+
     system_settings = SystemSettings.query.first()
     if not system_settings:
         system_settings = SystemSettings()
         db.session.add(system_settings)
         db.session.commit()
-    
+
     settings_form = SystemSettingsForm(obj=system_settings)
     
     if profile_form.validate_on_submit() and 'profile_submit' in request.form:
@@ -1049,10 +1115,11 @@ def settings():
         if current_user.role != 'administrateur':
             flash('Accès non autorisé', 'danger')
             return redirect(url_for('settings'))
-        
+
         settings_form.populate_obj(system_settings)
         db.session.commit()
         flash('Paramètres système mis à jour avec succès!', 'success')
+        # Force reload to apply new settings
         return redirect(url_for('settings'))
     
     users = User.query.all() if current_user.role == 'administrateur' else []

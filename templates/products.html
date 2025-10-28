@@ -55,9 +55,13 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{{ url_for('edit_product', id=product.id) }}" class="btn btn-sm btn-warning">
+                                <a href="{{ url_for('edit_product', id=product.id) }}" class="btn btn-sm btn-warning" title="Modifier">
                                     <i class="fas fa-edit"></i>
                                 </a>
+                                <button type="button" class="btn btn-sm btn-danger" title="Supprimer"
+                                        onclick="confirmDelete('{{ product.name }}', '{{ url_for('edit_product', id=product.id) }}'.replace('edit_product', 'delete_product'))">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -76,4 +80,40 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de confirmation de suppression -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirmer la suppression
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer le produit <strong id="productName"></strong> ?</p>
+                <p class="text-danger mb-0">
+                    <i class="fas fa-warning me-1"></i>Cette action est irréversible et peut affecter les crédits ou comptes existants.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>Supprimer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(productName, deleteUrl) {
+    document.getElementById('productName').textContent = productName;
+    document.getElementById('deleteForm').action = deleteUrl;
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+</script>
 {% endblock %}

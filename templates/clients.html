@@ -57,12 +57,16 @@
                             <td>{{ client.phone or '-' }}</td>
                             <td>{{ client.created_at.strftime('%d/%m/%Y') }}</td>
                             <td>
-                                <a href="{{ url_for('client_detail', id=client.id) }}" class="btn btn-sm btn-info">
+                                <a href="{{ url_for('client_detail', id=client.id) }}" class="btn btn-sm btn-info" title="Voir détails">
                                     <i class="fas fa-eye"></i>
                                 </a>
-                                <a href="{{ url_for('edit_client', id=client.id) }}" class="btn btn-sm btn-warning">
+                                <a href="{{ url_for('edit_client', id=client.id) }}" class="btn btn-sm btn-warning" title="Modifier">
                                     <i class="fas fa-edit"></i>
                                 </a>
+                                <button type="button" class="btn btn-sm btn-danger" title="Supprimer"
+                                        onclick="deleteClient({{ client.id }}, '{{ client.full_name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </button>
                             </td>
                         </tr>
                         {% endfor %}
@@ -81,4 +85,40 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de confirmation de suppression -->
+<div class="modal fade" id="deleteClientModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-danger me-2"></i>Confirmer la suppression
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer le client <strong id="clientName"></strong> ?</p>
+                <p class="text-danger mb-0">
+                    <i class="fas fa-warning me-1"></i>Cette action est irréversible et supprimera également tous les crédits et comptes d'épargne associés.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash me-1"></i>Supprimer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function deleteClient(clientId, clientName) {
+    document.getElementById('clientName').textContent = clientName;
+    document.getElementById('deleteForm').action = '{{ url_for("delete_client", id=0) }}'.replace('0', clientId);
+    new bootstrap.Modal(document.getElementById('deleteClientModal')).show();
+}
+</script>
 {% endblock %}

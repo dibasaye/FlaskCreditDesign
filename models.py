@@ -28,7 +28,7 @@ class User(UserMixin, db.Model):
 
 class Client(db.Model):
     __tablename__ = 'clients'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     client_id = db.Column(db.String(20), unique=True, nullable=False)
     first_name = db.Column(db.String(100), nullable=False)
@@ -38,6 +38,8 @@ class Client(db.Model):
     address = db.Column(db.Text)
     date_of_birth = db.Column(db.Date)
     id_number = db.Column(db.String(50))
+    photo_path = db.Column(db.String(500))
+    id_card_path = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -134,13 +136,14 @@ class SavingsAccount(db.Model):
 
 class SavingsTransaction(db.Model):
     __tablename__ = 'savings_transactions'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     account_id = db.Column(db.Integer, db.ForeignKey('savings_accounts.id'), nullable=False)
     transaction_type = db.Column(db.String(20), nullable=False)
     amount = db.Column(db.Float, nullable=False)
     transaction_date = db.Column(db.DateTime, default=datetime.utcnow)
     balance_after = db.Column(db.Float, nullable=False)
+    payment_method = db.Column(db.String(50))
     reference = db.Column(db.String(100))
     notes = db.Column(db.Text)
 

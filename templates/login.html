@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Connexion - Gestion Crédit & Épargne{% endblock %}
+{% block title %}Connexion - {{ system_settings.organization_name if system_settings else 'Gestion Crédit & Épargne' }}{% endblock %}
 
 {% block content %}
 <div class="login-container">
@@ -9,7 +9,7 @@
             <div class="login-icon">
                 <i class="fas fa-university"></i>
             </div>
-            <h2 class="login-title">FinanceManager</h2>
+            <h2 class="login-title">{{ system_settings.organization_name if system_settings else 'FinanceManager' }}</h2>
             <p class="text-muted">Système de Gestion de Crédit & Épargne</p>
         </div>
         
